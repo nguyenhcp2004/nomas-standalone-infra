@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  redis:
+    image: docker.io/bitnamilegacy/redis:7.4
+    container_name: redis
+    environment:
+      - ALLOW_EMPTY_PASSWORD=no
+      - REDIS_PASSWORD=Cuong123_A
+      - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/bitnami/redis/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local
