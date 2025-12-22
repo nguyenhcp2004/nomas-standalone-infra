@@ -2,19 +2,11 @@ terraform {
   required_version = ">= 1.6.0"
 
   required_providers {
-    digitalocean = {
-      source  = "digitalocean/digitalocean"
-      version = "~> 2.34"
-    }
     docker = {
       source  = "kreuzwerker/docker"
       version = "~> 3.0"
     }
   }
-}
-
-provider "digitalocean" {
-  token = var.do_token
 }
 
 provider "docker" {
@@ -24,54 +16,39 @@ provider "docker" {
 
 locals {
   compose_map = {
-    mongodb      = "mongodb/docker-compose.yml"
-    redis-cifarm = "redis-cifarm/docker-compose.yml"
-    kafka-cifarm = "kafka-cifarm/docker-compose.yml"
+    mongodb      = "compose/mongodb/docker-compose.yml"
+    redis-cifarm = "compose/redis-cifarm/docker-compose.yml"
+    kafka-cifarm = "compose/kafka-cifarm/docker-compose.yml"
   }
 
   # if var.stack doesn't match key, fallback to var.compose_source (default docker-compose.yml)
   selected_compose = lookup(local.compose_map, var.stack, var.compose_source)
 }
 
-resource "digitalocean_droplet" "stack" {
-  name   = var.droplet_name
-  region = var.region
-  size   = var.size
-  image  = var.image
+module "vps" {
+  source = "./modules/vps"
 
-  # if you have SSH key in DO, add fingerprint/ID here to use key instead of password.
-  ssh_keys = var.ssh_keys
+  do_token     = var.do_token
+  droplet_name = var.droplet_name
+  region       = var.region
+  size         = var.size
+  image        = var.image
+  ssh_keys     = var.ssh_keys
 
-  user_data = file("${path.module}/cloud-init.yaml")
+  user_data = file("${path.module}/cloud-init/base-cloud-init.yaml")
 }
 
-# Copy docker-compose and run
-resource "null_resource" "docker_stack" {
-  depends_on = [digitalocean_droplet.stack]
+module "docker_stack" {
+  source = "./modules/docker_stack"
 
-  connection {
-    type     = "ssh"
-    host     = digitalocean_droplet.stack.ipv4_address
-    user     = var.ssh_user
-    password = var.ssh_password
-    # recommendation: switch to using private_key instead of password.
-    # private_key = file("~/.ssh/id_rsa")
-  }
-
-  provisioner "file" {
-    source      = local.selected_compose
-    destination = var.compose_dest
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "docker compose -f ${var.compose_dest} pull",
-      "docker compose -f ${var.compose_dest} up -d"
-    ]
-  }
+  host           = module.vps.ip
+  ssh_user       = var.ssh_user
+  ssh_password   = var.ssh_password
+  compose_source = local.selected_compose
+  compose_dest   = var.compose_dest
 }
 
 output "droplet_ip" {
-  value = digitalocean_droplet.stack.ipv4_address
+  value = module.vps.ip
 }
 
