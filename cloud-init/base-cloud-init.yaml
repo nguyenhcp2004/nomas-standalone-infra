@@ -8,7 +8,65 @@ packages:
   - gnupg
   - lsb-release
   - ufw
+  - git
+  - nginx
+  - snapd
+
+write_files:
+  # Nginx server block cho app
+  - path: /etc/nginx/sites-available/app.conf
+    permissions: '0644'
+    content: |
+      %{ if use_cloudflare_cert == "true" }
+      # HTTP redirect to HTTPS
+      server {
+        listen 80;
+        server_name ${app_domain};
+        return 301 https://$server_name$request_uri;
+      }
+
+      # HTTPS with Cloudflare Origin Certificate
+      server {
+        listen 443 ssl http2;
+        server_name ${app_domain};
+
+        ssl_certificate     /etc/nginx/ssl/cloudflare.crt;
+        ssl_certificate_key /etc/nginx/ssl/cloudflare.key;
+
+        location / {
+          proxy_pass         http://127.0.0.1:${app_port};
+          proxy_http_version 1.1;
+          proxy_set_header   Upgrade $http_upgrade;
+          proxy_set_header   Connection "upgrade";
+          proxy_set_header   Host $host;
+          proxy_set_header   X-Real-IP $remote_addr;
+          proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header   X-Forwarded-Proto $scheme;
+          proxy_cache_bypass $http_upgrade;
+        }
+      }
+      %{ else }
+      # HTTP only (Certbot will add HTTPS later)
+      server {
+        listen 80;
+        server_name ${app_domain};
+
+        location / {
+          proxy_pass         http://127.0.0.1:${app_port};
+          proxy_http_version 1.1;
+          proxy_set_header   Upgrade $http_upgrade;
+          proxy_set_header   Connection "upgrade";
+          proxy_set_header   Host $host;
+          proxy_set_header   X-Real-IP $remote_addr;
+          proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header   X-Forwarded-Proto $scheme;
+          proxy_cache_bypass $http_upgrade;
+        }
+      }
+      %{ endif }
+
 runcmd:
+  # --- Docker engine + compose ---
   - install -m 0755 -d /etc/apt/keyrings
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
   - chmod a+r /etc/apt/keyrings/docker.gpg
@@ -20,10 +78,33 @@ runcmd:
   - systemctl enable docker
   - systemctl start docker
 
-  # basic UFW: open SSH, HTTP/HTTPS. You can add/remove as you wish.
+  # --- UFW basic rules: SSH + HTTP/HTTPS ---
   - ufw allow OpenSSH
-  - ufw allow 80/tcp
-  - ufw allow 443/tcp
+  - ufw allow "Nginx Full"
   - ufw --force enable
 
+  # --- Enable Nginx site ---
+  - mkdir -p /etc/nginx/ssl
+  # --- Create Cloudflare Origin Certificate files (nếu có) ---
+  - |
+    if [ "${use_cloudflare_cert}" = "true" ]; then
+      echo '${cloudflare_origin_cert}' > /etc/nginx/ssl/cloudflare.crt
+      chmod 644 /etc/nginx/ssl/cloudflare.crt
+      echo '${cloudflare_origin_key}' > /etc/nginx/ssl/cloudflare.key
+      chmod 600 /etc/nginx/ssl/cloudflare.key
+    fi
+  - ln -s /etc/nginx/sites-available/app.conf /etc/nginx/sites-enabled/app.conf || true
+  - rm -f /etc/nginx/sites-enabled/default || true
+  - nginx -t && systemctl reload nginx || systemctl restart nginx
+
+  # --- Install Certbot (chỉ khi không dùng Cloudflare cert) ---
+  - |
+    if [ "${use_cloudflare_cert}" != "true" ] && [ "${enable_https}" = "true" ]; then
+      snap install core && snap refresh core
+      snap install --classic certbot
+      ln -s /snap/bin/certbot /usr/bin/certbot || true
+      certbot --nginx --non-interactive --agree-tos \
+        -m ${app_email} -d ${app_domain} \
+        --redirect || echo "Certbot failed, check DNS/domain."
+    fi
 
