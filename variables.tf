@@ -93,13 +93,15 @@ variable "compose_dest" {
   }
 }
 
-variable "stack" {
-  type        = string
-  default     = "mongodb"
-  description = "Predefined stack to deploy: mongodb, redis-cifarm, or kafka-cifarm."
+variable "stacks" {
+  type        = list(string)
+  default     = ["mongodb"]
+  description = "List of stacks to deploy: mongodb, redis-cifarm, kafka-cifarm. Can deploy multiple stacks at once."
   validation {
-    condition     = contains(["mongodb", "redis-cifarm", "kafka-cifarm", ""], var.stack)
-    error_message = "The stack must be one of: mongodb, redis-cifarm, kafka-cifarm, or empty (for custom compose_source)."
+    condition = alltrue([
+      for s in var.stacks : contains(["mongodb", "redis-cifarm", "kafka-cifarm"], s)
+    ])
+    error_message = "Each stack must be one of: mongodb, redis-cifarm, kafka-cifarm."
   }
 }
 

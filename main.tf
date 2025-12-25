@@ -41,13 +41,10 @@ provider "cloudflare" {
 
 locals {
   compose_map = {
-    mongodb      = "compose/mongodb/docker-compose.yml"
-    redis-cifarm = "compose/redis-cifarm/docker-compose.yml"
-    kafka-cifarm = "compose/kafka-cifarm/docker-compose.yml"
+    mongodb       = "compose/mongodb/docker-compose.yml"
+    redis-cifarm  = "compose/redis-cifarm/docker-compose.yml"
+    kafka-cifarm  = "compose/kafka-cifarm/docker-compose.yml"
   }
-
-  # if var.stack doesn't match key, fallback to var.compose_source (default docker-compose.yml)
-  selected_compose = lookup(local.compose_map, var.stack, var.compose_source)
 }
 module "vps" {
   source = "./modules/vps"
@@ -72,15 +69,17 @@ module "vps" {
   )
 }
 
-module "docker_stack" {
+module "docker_stacks" {
+  for_each = toset(var.stacks)
+
   source = "./modules/docker_stack"
 
   host             = module.vps.ip
   ssh_user         = var.ssh_user
   ssh_private_key  = var.ssh_private_key
-  compose_source   = local.selected_compose
-  compose_dest     = var.compose_dest
-  compose_checksum = try(filebase64sha256(local.selected_compose), sha256(local.selected_compose))
+  compose_source   = local.compose_map[each.value]
+  compose_dest     = "/root/${each.value}/docker-compose.yml"
+  compose_checksum = filebase64sha256(local.compose_map[each.value])
 }
 
 # Cloudflare DNS records for each app domain

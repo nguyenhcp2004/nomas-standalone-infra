@@ -1,0 +1,86 @@
+# =============================================================================
+# Terraform Variables - Example Configuration
+# =============================================================================
+# Copy this file to terraform.tfvars and customize with your values.
+# DO NOT put secrets (API tokens, private keys) in this file.
+# Use .env file or environment variables for secrets.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# VPS Configuration
+# -----------------------------------------------------------------------------
+
+droplet_name  = "my-production-stack"
+region        = "sgp1"
+size          = "s-4vcpu-8gb"
+image         = "ubuntu-22-04-x64"
+droplet_tags  = ["terraform-managed", "docker-stack", "production"]
+
+# SSH user for Docker stack deployment
+ssh_user = "root"
+
+# -----------------------------------------------------------------------------
+# Docker Stack Configuration
+# -----------------------------------------------------------------------------
+
+# Available stacks: "mongodb", "redis-cifarm", "kafka-cifarm"
+# Deploy multiple stacks at once
+stacks = ["mongodb", "redis-cifarm", "kafka-cifarm"]
+
+# Or deploy only specific stacks:
+# stacks = ["mongodb", "redis-cifarm"]
+# stacks = ["mongodb"]
+
+# For custom compose file, uncomment and set:
+# compose_source = "path/to/your/docker-compose.yml"
+
+compose_dest  = "/root/docker-compose.yml"
+
+# -----------------------------------------------------------------------------
+# SSL/HTTPS Configuration
+# -----------------------------------------------------------------------------
+
+# Enable automatic HTTPS with Let's Encrypt
+enable_https       = true
+
+# Use Cloudflare Origin Certificate instead of Let's Encrypt
+use_cloudflare_cert = false
+
+# -----------------------------------------------------------------------------
+# Application Configuration
+# -----------------------------------------------------------------------------
+# Define your applications with their domains and internal ports
+# -----------------------------------------------------------------------------
+
+apps = [
+  { domain = "api.example.com", port = 3000 },
+  { domain = "web.example.com", port = 8080 },
+  # Add more apps as needed
+]
+
+# -----------------------------------------------------------------------------
+# Cloudflare Configuration (Optional)
+# -----------------------------------------------------------------------------
+# Leave empty if not using Cloudflare
+# -----------------------------------------------------------------------------
+
+cloudflare_zone_id     = "your-cloudflare-zone-id"
+cloudflare_proxied     = true
+
+# -----------------------------------------------------------------------------
+# Secrets (DO NOT PUT HERE - use environment variables)
+# -----------------------------------------------------------------------------
+# Required secrets (set via .env file or export TF_VAR_...):
+#
+#   do_token                  - DigitalOcean API token
+#   ssh_private_key           - SSH private key for VPS access
+#   app_email                 - Email for Let's Encrypt (when enable_https=true)
+#
+# Optional secrets (for Cloudflare):
+#
+#   cloudflare_api_token      - Cloudflare API token
+#   cloudflare_origin_cert    - Origin certificate (PEM format)
+#   cloudflare_origin_key     - Certificate private key (PEM format)
+#
+# See .env.example for how to set these values.
+# -----------------------------------------------------------------------------

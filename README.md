@@ -101,21 +101,90 @@ terraform plan -out tfplan \
 terraform apply "tfplan"
 ```
 
-### 5. Using terraform.tfvars (Recommended)
+### 5. Variable Management (Recommended)
 
-Create a `terraform.tfvars` file:
+Instead of passing variables via CLI, use one of these methods:
+
+#### Method 1: terraform.tfvars
+
+Create a `terraform.tfvars` file with non-sensitive values:
 
 ```hcl
-do_token       = "dop_v1_xxxxxxxxxxxx"
-ssh_private_key = file("${pathexpand("~/.ssh/id_rsa")}")
-app_email      = "you@example.com"
-apps           = [{ domain = "api.example.com", port = 3000 }]
+droplet_name   = "production-stack"
+region         = "sgp1"
+size           = "s-4vcpu-8gb"
 stack          = "mongodb"
+apps           = [{ domain = "api.example.com", port = 3000 }]
 ```
 
-Then run:
+For secrets, use a `.env` file (see Method 2).
+
+#### Method 2: Environment Variables (.env file)
+
+Copy the example file and add your secrets:
 
 ```bash
+cp .env.example .env
+# Edit .env with your actual values
+```
+
+**Linux/Mac:**
+```bash
+source .env
+terraform apply
+```
+
+**Windows PowerShell:**
+```powershell
+Get-Content .env | ForEach-Object {
+    if ($_ -match '^TF_VAR_') {
+        $parts = $_.Split('=', 2)
+        [Environment]::SetEnvironmentVariable($parts[0], $parts[1])
+    }
+}
+terraform apply
+```
+
+**Windows CMD:**
+```cmd
+for /f "tokens=*" %a in (.env) do set %a
+terraform apply
+```
+
+#### Method 3: Multi-Environment Setup
+
+Use per-environment configuration files:
+
+```bash
+# Development
+terraform apply -var-file=environments/dev.tfvars
+
+# Staging
+terraform apply -var-file=environments/staging.tfvars
+
+# Production
+terraform apply -var-file=environments/prod.tfvars
+```
+
+#### Method 4: Auto-loading Files
+
+Files ending in `.auto.tfvars` load automatically:
+
+```bash
+# terraform.auto.tfvars - loads automatically
+# local.auto.tfvars - loads automatically (gitignored)
+```
+
+**Complete Workflow:**
+
+```bash
+# 1. Copy .env.example and fill in secrets
+cp .env.example .env
+
+# 2. Source environment variables (Linux/Mac)
+source .env
+
+# 3. Run terraform (variables loaded from terraform.tfvars + .env)
 terraform plan
 terraform apply
 ```
@@ -133,7 +202,7 @@ terraform apply
 | `size`                    | Droplet size                                                      | `s-4vcpu-8gb`                           | ❌       |
 | `image`                   | OS image                                                          | `ubuntu-22-04-x64`                      | ❌       |
 | `ssh_keys`                | List of SSH key fingerprints for DO                               | `[]`                                    | ❌       |
-| `stack`                   | Stack to deploy (`mongodb`, `redis-cifarm`, `kafka-cifarm`)       | `mongodb`                               | ❌       |
+| `stacks`                  | List of stacks to deploy (`mongodb`, `redis-cifarm`, `kafka-cifarm`) | `["mongodb"]`                          | ❌       |
 | `apps`                    | List of apps with domain and port                                 | `[]`                                    | ❌       |
 | `app_email`               | Email for Let's Encrypt                                           | -                                       | ✅\*     |
 | `enable_https`            | Enable automatic HTTPS with Certbot                               | `true`                                  | ❌       |
@@ -148,11 +217,61 @@ terraform apply
 
 ## 🐳 Available Stacks
 
-| Stack          | Description                      |
-| -------------- | -------------------------------- |
-| `mongodb`      | MongoDB database                 |
-| `redis-cifarm` | Redis for CiFarm                 |
-| `kafka-cifarm` | Kafka message broker for CiFarm  |
+| Stack          | Description                      | Services                           | Ports      |
+| -------------- | -------------------------------- | ---------------------------------- | ---------- |
+| `mongodb`      | MongoDB Sharded Cluster          | MongoDB (3 shards, config servers) | 27017      |
+| `redis-cifarm` | Redis for CiFarm                 | Redis single instance              | 6379       |
+| `kafka-cifarm` | Kafka message broker for CiFarm  | Kafka KRaft mode                   | 9092       |
+
+### Deploying Multiple Stacks
+
+You can deploy multiple stacks at once by specifying a list:
+
+```hcl
+# terraform.tfvars
+stacks = ["mongodb", "redis-cifarm", "kafka-cifarm"]
+```
+
+Each stack will be deployed to its own directory on the VPS:
+- `/root/mongodb/docker-compose.yml`
+- `/root/redis-cifarm/docker-compose.yml`
+- `/root/kafka-cifarm/docker-compose.yml`
+
+#### Deploy Specific Stacks
+
+```hcl
+# Deploy only MongoDB
+stacks = ["mongodb"]
+
+# Deploy MongoDB + Redis
+stacks = ["mongodb", "redis-cifarm"]
+
+# Deploy all three
+stacks = ["mongodb", "redis-cifarm", "kafka-cifarm"]
+```
+
+### Service Connection Details
+
+When stacks are deployed, connect to services using their ports:
+
+| Service    | Port  | Connection URL Example                 |
+| ---------- | ----- | -------------------------------------- |
+| MongoDB    | 27017 | `mongodb://root:password@host:27017/`  |
+| Redis      | 6379  | `redis://:password@host:6379/`         |
+| Kafka      | 9092  | `localhost:9092` (SASL/PLAIN auth)     |
+
+### Domain/Port Mapping for Nginx Reverse Proxy
+
+Configure the `apps` variable to expose services via domain:
+
+```hcl
+apps = [
+  { domain = "mongo.example.com", port = 27017 },
+  { domain = "redis.example.com", port = 6379 },
+  { domain = "kafka.example.com", port = 9092 },
+  { domain = "myapp.example.com", port = 3000 },  # your custom app
+]
+```
 
 To use a custom Docker Compose file, place the file and use the `compose_source` variable:
 
