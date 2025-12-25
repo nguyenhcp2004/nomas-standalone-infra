@@ -13,28 +13,29 @@ packages:
   - snapd
 
 write_files:
-  # Nginx server block cho app
+  # Nginx server block for apps
   - path: /etc/nginx/sites-available/app.conf
     permissions: '0644'
     content: |
+      %{ for app in apps ~}
       %{ if use_cloudflare_cert == "true" }
-      # HTTP redirect to HTTPS
+      # HTTP redirect to HTTPS for ${app.domain}
       server {
         listen 80;
-        server_name ${app_domain};
+        server_name ${app.domain};
         return 301 https://$server_name$request_uri;
       }
 
-      # HTTPS with Cloudflare Origin Certificate
+      # HTTPS with Cloudflare Origin Certificate for ${app.domain}
       server {
         listen 443 ssl http2;
-        server_name ${app_domain};
+        server_name ${app.domain};
 
         ssl_certificate     /etc/nginx/ssl/cloudflare.crt;
         ssl_certificate_key /etc/nginx/ssl/cloudflare.key;
 
         location / {
-          proxy_pass         http://127.0.0.1:${app_port};
+          proxy_pass         http://127.0.0.1:${app.port};
           proxy_http_version 1.1;
           proxy_set_header   Upgrade $http_upgrade;
           proxy_set_header   Connection "upgrade";
@@ -46,13 +47,13 @@ write_files:
         }
       }
       %{ else }
-      # HTTP only (Certbot will add HTTPS later)
+      # HTTP only (Certbot will add HTTPS later) for ${app.domain}
       server {
         listen 80;
-        server_name ${app_domain};
+        server_name ${app.domain};
 
         location / {
-          proxy_pass         http://127.0.0.1:${app_port};
+          proxy_pass         http://127.0.0.1:${app.port};
           proxy_http_version 1.1;
           proxy_set_header   Upgrade $http_upgrade;
           proxy_set_header   Connection "upgrade";
@@ -64,6 +65,35 @@ write_files:
         }
       }
       %{ endif }
+      %{ endfor ~}
+
+  # Script to log Certbot failures
+  - path: /usr/local/bin/certbot-with-logging.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # Certbot wrapper with proper error logging
+      set -e
+
+      LOG_FILE="/var/log/certbot-cloud-init.log"
+      EMAIL="$1"
+      DOMAIN="$2"
+
+      echo "===== Certbot attempt for $DOMAIN at $(date) =====" >> "$LOG_FILE"
+
+      if certbot --nginx --non-interactive --agree-tos -m "$EMAIL" -d "$DOMAIN" --redirect; then
+        echo "SUCCESS: Certificate obtained for $DOMAIN" >> "$LOG_FILE"
+        exit 0
+      else
+        echo "ERROR: Failed to obtain certificate for $DOMAIN" >> "$LOG_FILE"
+        echo "Common issues:" >> "$LOG_FILE"
+        echo "  - DNS not propagated to this server's IP" >> "$LOG_FILE"
+        echo "  - Domain not reachable from internet" >> "$LOG_FILE"
+        echo "  - Port 80 blocked by firewall" >> "$LOG_FILE"
+        echo "  - Rate limiting by Let's Encrypt" >> "$LOG_FILE"
+        echo "Run 'certbot --nginx -d $DOMAIN' manually to see detailed error" >> "$LOG_FILE"
+        exit 1
+      fi
 
 runcmd:
   # --- Docker engine + compose ---
@@ -85,26 +115,37 @@ runcmd:
 
   # --- Enable Nginx site ---
   - mkdir -p /etc/nginx/ssl
-  # --- Create Cloudflare Origin Certificate files (nếu có) ---
+  # --- Create Cloudflare Origin Certificate files (if provided) ---
   - |
+    set -e
     if [ "${use_cloudflare_cert}" = "true" ]; then
       echo '${cloudflare_origin_cert}' > /etc/nginx/ssl/cloudflare.crt
       chmod 644 /etc/nginx/ssl/cloudflare.crt
       echo '${cloudflare_origin_key}' > /etc/nginx/ssl/cloudflare.key
       chmod 600 /etc/nginx/ssl/cloudflare.key
+      echo "Cloudflare Origin Certificate installed" >> /var/log/cloud-init-cert.log
     fi
   - ln -s /etc/nginx/sites-available/app.conf /etc/nginx/sites-enabled/app.conf || true
   - rm -f /etc/nginx/sites-enabled/default || true
   - nginx -t && systemctl reload nginx || systemctl restart nginx
 
-  # --- Install Certbot (chỉ khi không dùng Cloudflare cert) ---
+  # --- Install Certbot (only when not using Cloudflare cert) ---
   - |
+    set -e
     if [ "${use_cloudflare_cert}" != "true" ] && [ "${enable_https}" = "true" ]; then
+      echo "Installing Certbot..." >> /var/log/cloud-init-cert.log
       snap install core && snap refresh core
       snap install --classic certbot
       ln -s /snap/bin/certbot /usr/bin/certbot || true
-      certbot --nginx --non-interactive --agree-tos \
-        -m ${app_email} -d ${app_domain} \
-        --redirect || echo "Certbot failed, check DNS/domain."
+
+      # Install certificates for each domain
+      %{ for app in apps ~}
+      /usr/local/bin/certbot-with-logging.sh "${app_email}" "${app.domain}" || true
+      %{ endfor ~}
+
+      echo "Certbot installation completed. Check /var/log/certbot-cloud-init.log for results." >> /var/log/cloud-init-cert.log
     fi
 
+# Output logs for debugging
+output:
+  all: '| tee -a /var/log/cloud-init-output.log'

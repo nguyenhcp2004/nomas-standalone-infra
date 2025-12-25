@@ -1,3 +1,4 @@
+# Provider configuration is now managed in the root module
 terraform {
   required_providers {
     digitalocean = {
@@ -5,10 +6,6 @@ terraform {
       version = "~> 2.34"
     }
   }
-}
-
-provider "digitalocean" {
-  token = var.do_token
 }
 
 resource "digitalocean_droplet" "this" {
@@ -19,6 +16,9 @@ resource "digitalocean_droplet" "this" {
 
   ssh_keys  = var.ssh_keys
   user_data = var.user_data
+
+  # Ensure droplet is tagged for identification
+  tags = var.tags
 }
 
 
