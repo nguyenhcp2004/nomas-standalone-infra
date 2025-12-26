@@ -1,137 +1,67 @@
 # Nomas Terraform - VPS Stack Deployment
 
-> Automated VPS deployment on DigitalOcean with Docker Compose, Nginx reverse proxy, and SSL (Let's Encrypt or Cloudflare Origin Certificate).
+> Automated VPS deployment on DigitalOcean with Docker stacks, Nginx reverse proxy, and SSL (Let's Encrypt or Cloudflare Origin Certificate).
 
-## 📋 Overview
+## What This Does
 
-This project uses Terraform to:
+This Terraform project automates the complete setup of a production-ready VPS:
 
-- Create Droplets (VPS) on DigitalOcean
-- Automatically install Docker & Docker Compose
-- Configure Nginx as a reverse proxy
-- Support SSL with Let's Encrypt or Cloudflare Origin Certificate
-- Deploy ready-to-use Docker stacks (MongoDB, Redis, Kafka)
+- **Provisions** a DigitalOcean Droplet with cloud-init
+- **Installs** Docker, Docker Compose, Nginx, UFW firewall, and Certbot
+- **Deploys** pre-configured Docker stacks (MongoDB, Redis, Kafka)
+- **Configures** Nginx as a reverse proxy for your applications
+- **Secures** with Let's Encrypt or Cloudflare Origin Certificate
+- **Manages** DNS records via Cloudflare (optional)
 
-## 📁 Project Structure
+## Quick Start
 
-```
-├── main.tf                          # Entry point - providers & modules
-├── variables.tf                     # Variable definitions
-├── cloud-init/
-│   └── base-cloud-init.yaml         # Cloud-init script (Docker, Nginx, UFW, Certbot)
-├── compose/                         # Available Docker Compose stacks
-│   ├── mongodb/docker-compose.yml
-│   ├── redis-cifarm/docker-compose.yml
-│   └── kafka-cifarm/docker-compose.yml
-└── modules/
-    ├── vps/                         # DigitalOcean Droplet module
-    │   ├── main.tf
-    │   ├── variables.tf
-    │   └── outputs.tf
-    └── docker_stack/                # Docker Compose deployment module
-        ├── main.tf
-        └── variables.tf
-```
+### Prerequisites
 
-## ⚙️ Requirements
+| Requirement | Details |
+|-------------|---------|
+| Terraform | >= 1.6.0 |
+| DigitalOcean API Token | [Create here](https://cloud.digitalocean.com/account/api/tokens) |
+| SSH Private Key | For Docker stack deployment |
+| Cloudflare Token (optional) | For DNS management and Origin Certificate |
 
-- **Terraform** >= 1.6.0
-- **DigitalOcean API Token** ([Create here](https://cloud.digitalocean.com/account/api/tokens))
-- **SSH Private Key** for Docker stack deployment
-- **(Optional)** Cloudflare API Token + Zone ID if using Cloudflare DNS/SSL
-
-## 🚀 Quick Start
-
-### 1. Initialize Terraform
+### 1. Clone and Initialize
 
 ```bash
+git clone <repository-url>
+cd nomas-terraform
 terraform init
 ```
 
-### 2. Configure Backend for Production (Recommended)
+### 2. Configure Variables
 
-```bash
-# Create backend.tf file with:
-terraform {
-  backend "s3" {
-    bucket         = "your-terraform-state-bucket"
-    key            = "nomas/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    dynamodb_table = "terraform-state-lock"
-  }
-}
-```
+Choose one of these methods:
 
-Or uncomment the backend section in `main.tf`.
-
-### 3. Deploy with Let's Encrypt SSL
-
-```bash
-terraform plan -out tfplan \
-  -var "do_token=dop_v1_xxxxxxxxxxxx" \
-  -var "ssh_private_key=$(cat ~/.ssh/id_rsa)" \
-  -var "region=sgp1" \
-  -var "size=s-4vcpu-8gb" \
-  -var "stack=redis-cifarm" \
-  -var "apps=[{ domain = \"api.example.com\", port = 3000 }]" \
-  -var "app_email=you@example.com" \
-  -var "enable_https=true"
-
-terraform apply "tfplan"
-```
-
-### 4. Deploy with Cloudflare Origin Certificate
-
-```bash
-terraform plan -out tfplan \
-  -var "do_token=dop_v1_xxxxxxxxxxxx" \
-  -var "ssh_private_key=$(cat ~/.ssh/id_rsa)" \
-  -var "region=sgp1" \
-  -var "size=s-4vcpu-8gb" \
-  -var "stack=mongodb" \
-  -var "apps=[{ domain = \"api.example.com\", port = 3000 }]" \
-  -var "app_email=you@example.com" \
-  -var "cloudflare_api_token=YOUR_CF_TOKEN" \
-  -var "cloudflare_zone_id=YOUR_ZONE_ID" \
-  -var "cloudflare_origin_cert=$(cat cloudflare.crt)" \
-  -var "cloudflare_origin_key=$(cat cloudflare.key)" \
-  -var "use_cloudflare_cert=true"
-
-terraform apply "tfplan"
-```
-
-### 5. Variable Management (Recommended)
-
-Instead of passing variables via CLI, use one of these methods:
-
-#### Method 1: terraform.tfvars
-
-Create a `terraform.tfvars` file with non-sensitive values:
-
-```hcl
-droplet_name   = "production-stack"
-region         = "sgp1"
-size           = "s-4vcpu-8gb"
-stack          = "mongodb"
-apps           = [{ domain = "api.example.com", port = 3000 }]
-```
-
-For secrets, use a `.env` file (see Method 2).
-
-#### Method 2: Environment Variables (.env file)
-
-Copy the example file and add your secrets:
+**Option A: Using `.env` file (Recommended for secrets)**
 
 ```bash
 cp .env.example .env
 # Edit .env with your actual values
 ```
 
-**Linux/Mac:**
+**Option B: Using `terraform.tfvars`**
+
+```hcl
+# terraform.tfvars
+droplet_name = "production-stack"
+region       = "sgp1"
+size         = "s-4vcpu-8gb"
+stacks       = ["mongodb"]
+apps         = [{ domain = "api.example.com", port = 3000 }]
+app_email    = "you@example.com"
+```
+
+### 3. Deploy
+
+**Linux/macOS:**
 ```bash
-source .env
-terraform apply
+source .env                    # Load secrets from .env
+terraform plan                 # Preview changes
+terraform apply                # Deploy
 ```
 
 **Windows PowerShell:**
@@ -142,18 +72,149 @@ Get-Content .env | ForEach-Object {
         [Environment]::SetEnvironmentVariable($parts[0], $parts[1])
     }
 }
+terraform plan
 terraform apply
 ```
 
-**Windows CMD:**
-```cmd
-for /f "tokens=*" %a in (.env) do set %a
-terraform apply
+## Project Structure
+
+```
+nomas-terraform/
+├── main.tf                    # Root configuration
+├── variables.tf               # Input variable definitions
+├── outputs.tf                 # Output values
+├── cloud-init/
+│   └── base-cloud-init.yaml   # Cloud-init script for Droplet setup
+├── compose/                   # Docker stack definitions
+│   ├── mongodb/docker-compose.yml
+│   ├── redis-cifarm/docker-compose.yml
+│   └── kafka-cifarm/docker-compose.yml
+├── modules/
+│   ├── vps/                   # DigitalOcean Droplet module
+│   └── docker_stack/          # Docker Compose deployment via SSH
+└── environments/              # Multi-environment configs (optional)
+    ├── dev.tfvars
+    ├── staging.tfvars
+    └── prod.tfvars
 ```
 
-#### Method 3: Multi-Environment Setup
+## Available Stacks
 
-Use per-environment configuration files:
+| Stack | Description | Services | Default Port |
+|-------|-------------|----------|--------------|
+| `mongodb` | MongoDB Sharded Cluster | 3 shards + config servers | 27017 |
+| `redis-cifarm` | Redis for CiFarm | Single instance | 6379 |
+| `kafka-cifarm` | Kafka for CiFarm | KRaft mode | 9092 |
+
+### Deploying Multiple Stacks
+
+```hcl
+# Deploy all stacks
+stacks = ["mongodb", "redis-cifarm", "kafka-cifarm"]
+
+# Deploy specific stacks
+stacks = ["mongodb", "redis-cifarm"]
+```
+
+Each stack deploys to its own directory on the VPS:
+- `/root/mongodb/docker-compose.yml`
+- `/root/redis-cifarm/docker-compose.yml`
+- `/root/kafka-cifarm/docker-compose.yml`
+
+## Configuration Reference
+
+### Required Variables
+
+| Variable | Description |
+|----------|-------------|
+| `do_token` | DigitalOcean API Token |
+| `ssh_private_key` | SSH private key content (for connecting to VPS) |
+| `app_email` | Email for Let's Encrypt certificates |
+
+### Droplet Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `droplet_name` | `stack-1vps` | Name of the Droplet |
+| `region` | `sgp1` | DigitalOcean region |
+| `size` | `s-4vcpu-8gb` | Droplet size slug |
+| `image` | `ubuntu-22-04-x64` | OS image |
+| `ssh_keys` | `[]` | List of SSH key fingerprints (DO) |
+| `droplet_tags` | `["terraform-managed"]` | Droplet tags |
+
+### Stack Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `stacks` | `["mongodb"]` | List of stacks to deploy |
+| `apps` | `[]` | List of {domain, port} for Nginx proxy |
+
+### SSL/HTTPS Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `enable_https` | `true` | Enable Let's Encrypt certificates |
+| `use_cloudflare_cert` | `false` | Use Cloudflare Origin Certificate |
+| `cloudflare_origin_cert` | `""` | PEM-formatted certificate content |
+| `cloudflare_origin_key` | `""` | PEM-formatted private key content |
+
+### Cloudflare Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `cloudflare_api_token` | `""` | Cloudflare API Token |
+| `cloudflare_zone_id` | `""` | Cloudflare Zone ID |
+| `cloudflare_proxied` | `true` | Enable Cloudflare proxy (CDN + DDoS) |
+
+## Nginx Reverse Proxy
+
+Configure the `apps` variable to expose services via domain:
+
+```hcl
+apps = [
+  { domain = "mongo.example.com", port = 27017 },
+  { domain = "redis.example.com", port = 6379 },
+  { domain = "kafka.example.com", port = 9092 },
+  { domain = "api.example.com", port = 3000 },
+]
+```
+
+Each domain will get an Nginx server block with SSL termination.
+
+## SSL Options
+
+### Option 1: Let's Encrypt (Default)
+
+```hcl
+enable_https = true
+app_email    = "you@example.com"
+```
+
+> **Note:** DNS must already point to the VPS IP before running Terraform.
+
+### Option 2: Cloudflare Origin Certificate
+
+```hcl
+use_cloudflare_cert    = true
+cloudflare_zone_id     = "your_zone_id"
+cloudflare_api_token   = "your_api_token"
+cloudflare_origin_cert = file("cloudflare.crt")
+cloudflare_origin_key  = file("cloudflare.key")
+```
+
+**Benefits:**
+
+| Feature | Let's Encrypt | Cloudflare Origin |
+|---------|---------------|-------------------|
+| Validity | 90 days | Up to 15 years |
+| Auto-renewal | Requires cron | Not needed |
+| Rate limits | Yes | No |
+| DNS management | Manual | Automatic |
+| CDN + DDoS | No | Yes (if proxied) |
+
+## Environment Management
+
+### Per-Environment Configuration
 
 ```bash
 # Development
@@ -166,230 +227,121 @@ terraform apply -var-file=environments/staging.tfvars
 terraform apply -var-file=environments/prod.tfvars
 ```
 
-#### Method 4: Auto-loading Files
+### Auto-Loading Files
 
 Files ending in `.auto.tfvars` load automatically:
 
 ```bash
-# terraform.auto.tfvars - loads automatically
-# local.auto.tfvars - loads automatically (gitignored)
+terraform.auto.tfvars    # Non-sensitive, committed to git
+local.auto.tfvars        # Sensitive, gitignored
 ```
 
-**Complete Workflow:**
+## State Management (Recommended)
 
-```bash
-# 1. Copy .env.example and fill in secrets
-cp .env.example .env
-
-# 2. Source environment variables (Linux/Mac)
-source .env
-
-# 3. Run terraform (variables loaded from terraform.tfvars + .env)
-terraform plan
-terraform apply
-```
-
-## 📝 Configuration Variables
-
-| Variable                  | Description                                                       | Default                                 | Required |
-| ------------------------- | ----------------------------------------------------------------- | --------------------------------------- | -------- |
-| `do_token`                | DigitalOcean API Token                                            | -                                       | ✅       |
-| `ssh_private_key`         | SSH private key content                                           | -                                       | ✅       |
-| `ssh_user`                | SSH user                                                          | `root`                                  | ❌       |
-| `droplet_name`            | Droplet name                                                      | `stack-1vps`                            | ❌       |
-| `droplet_tags`            | Tags for Droplet                                                  | `["terraform-managed", "docker-stack"]` | ❌       |
-| `region`                  | Deployment region                                                 | `sgp1`                                  | ❌       |
-| `size`                    | Droplet size                                                      | `s-4vcpu-8gb`                           | ❌       |
-| `image`                   | OS image                                                          | `ubuntu-22-04-x64`                      | ❌       |
-| `ssh_keys`                | List of SSH key fingerprints for DO                               | `[]`                                    | ❌       |
-| `stacks`                  | List of stacks to deploy (`mongodb`, `redis-cifarm`, `kafka-cifarm`) | `["mongodb"]`                          | ❌       |
-| `apps`                    | List of apps with domain and port                                 | `[]`                                    | ❌       |
-| `app_email`               | Email for Let's Encrypt                                           | -                                       | ✅\*     |
-| `enable_https`            | Enable automatic HTTPS with Certbot                               | `true`                                  | ❌       |
-| `cloudflare_api_token`    | Cloudflare API Token                                              | `""`                                    | ❌       |
-| `cloudflare_zone_id`      | Cloudflare Zone ID                                                | `""`                                    | ❌       |
-| `use_cloudflare_cert`     | Use Cloudflare Origin Certificate                                  | `false`                                 | ❌       |
-| `cloudflare_origin_cert`  | Cloudflare certificate content (PEM)                               | `""`                                    | ❌       |
-| `cloudflare_origin_key`   | Certificate private key (PEM)                                     | `""`                                    | ❌       |
-| `cloudflare_proxied`      | Enable Cloudflare proxy (CDN + DDoS)                               | `true`                                  | ❌       |
-
-\*Required when `enable_https = true`
-
-## 🐳 Available Stacks
-
-| Stack          | Description                      | Services                           | Ports      |
-| -------------- | -------------------------------- | ---------------------------------- | ---------- |
-| `mongodb`      | MongoDB Sharded Cluster          | MongoDB (3 shards, config servers) | 27017      |
-| `redis-cifarm` | Redis for CiFarm                 | Redis single instance              | 6379       |
-| `kafka-cifarm` | Kafka message broker for CiFarm  | Kafka KRaft mode                   | 9092       |
-
-### Deploying Multiple Stacks
-
-You can deploy multiple stacks at once by specifying a list:
+For production, use a remote backend:
 
 ```hcl
-# terraform.tfvars
-stacks = ["mongodb", "redis-cifarm", "kafka-cifarm"]
+# backend.tf
+terraform {
+  backend "s3" {
+    bucket         = "your-terraform-state"
+    key            = "nomas/terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    dynamodb_table = "terraform-state-lock"
+  }
+}
 ```
 
-Each stack will be deployed to its own directory on the VPS:
-- `/root/mongodb/docker-compose.yml`
-- `/root/redis-cifarm/docker-compose.yml`
-- `/root/kafka-cifarm/docker-compose.yml`
-
-#### Deploy Specific Stacks
-
-```hcl
-# Deploy only MongoDB
-stacks = ["mongodb"]
-
-# Deploy MongoDB + Redis
-stacks = ["mongodb", "redis-cifarm"]
-
-# Deploy all three
-stacks = ["mongodb", "redis-cifarm", "kafka-cifarm"]
-```
-
-### Service Connection Details
-
-When stacks are deployed, connect to services using their ports:
-
-| Service    | Port  | Connection URL Example                 |
-| ---------- | ----- | -------------------------------------- |
-| MongoDB    | 27017 | `mongodb://root:password@host:27017/`  |
-| Redis      | 6379  | `redis://:password@host:6379/`         |
-| Kafka      | 9092  | `localhost:9092` (SASL/PLAIN auth)     |
-
-### Domain/Port Mapping for Nginx Reverse Proxy
-
-Configure the `apps` variable to expose services via domain:
-
-```hcl
-apps = [
-  { domain = "mongo.example.com", port = 27017 },
-  { domain = "redis.example.com", port = 6379 },
-  { domain = "kafka.example.com", port = 9092 },
-  { domain = "myapp.example.com", port = 3000 },  # your custom app
-]
-```
-
-To use a custom Docker Compose file, place the file and use the `compose_source` variable:
-
-```bash
--var "compose_source=path/to/your/docker-compose.yml"
-```
-
-## ☁️ Cloudflare Setup
-
-### Creating an Origin Certificate
-
-1. Login to **Cloudflare Dashboard** → select your domain
-2. Go to **SSL/TLS** → **Origin Server** → **Create Certificate**
-3. Choose hostnames (e.g., `*.example.com`, `example.com`)
-4. Select validity (recommended: 15 years)
-5. Download the certificate and private key
-
-### Benefits of Cloudflare Origin Certificate
-
-| Feature     | Let's Encrypt | Cloudflare Origin |
-| ----------- | ------------- | ----------------- |
-| Validity    | 90 days       | Up to 15 years    |
-| Auto-renew  | Needs cron    | Not needed        |
-| Rate limit  | Yes           | No                |
-| DNS management | Manual      | Automatic         |
-| CDN + DDoS  | ❌            | ✅ (if proxied)   |
-
-> ⚠️ **Note**: When using Cloudflare Origin Certificate, set SSL/TLS mode to **Full (strict)** in Cloudflare Dashboard.
-
-## 🔐 Security
-
-### SSH Key Authentication
-
-This project uses SSH key authentication instead of passwords. Add your SSH public key to DigitalOcean before running Terraform:
-
-```bash
-# Add SSH key to DigitalOcean via API or UI
-# Then use the fingerprint for droplet access
-terraform apply \
-  -var "ssh_keys=[\"your_ssh_key_fingerprint\"]" \
-  -var "ssh_private_key=$(cat ~/.ssh/id_rsa)"
-```
+## Security
 
 ### Secrets Management
 
-**NEVER** commit secrets to git. Use one of the following methods:
+**NEVER** commit secrets to git. Use one of these methods:
 
-- `terraform.tfvars` (already in .gitignore)
-- Environment variables: `export TF_VAR_do_token=xxx`
-- Terraform Cloud/Enterprise workspace variables
+- `.env` file (gitignored) with `TF_VAR_*` variables
+- `local.auto.tfvars` (gitignored)
+- Terraform Cloud workspace variables
 - Secrets manager (AWS Secrets Manager, Vault, etc.)
 
-### Firewall (UFW)
+### Firewall Rules
 
-Cloud-init automatically configures UFW with the following rules:
+UFW is automatically configured with:
 
-- ✅ SSH (port 22)
-- ✅ HTTP (port 80)
-- ✅ HTTPS (port 443)
+| Port | Service | Allowed |
+|------|---------|---------|
+| 22 | SSH | Yes |
+| 80 | HTTP | Yes |
+| 443 | HTTPS | Yes |
 
-## 🔧 Customization
+### SSH Access
 
-### Using Other Providers (AWS, GCP, etc.)
+```bash
+# SSH into the deployed VPS
+ssh root@<droplet_ip>
+```
 
-1. Replace the `vps` module with the corresponding provider
-2. Keep the `docker_stack` module (uses SSH connection)
-3. Update `cloud-init` if needed
+## Troubleshooting
 
-## 🗑️ Destroy Resources
+### Check Cloud-Init Logs
+
+```bash
+ssh root@<droplet_ip>
+cat /var/log/cloud-init-output.log
+```
+
+### Check Services
+
+```bash
+# Nginx status and config
+systemctl status nginx
+nginx -t
+
+# Docker containers
+docker ps
+docker compose logs
+
+# Certificate logs
+cat /var/log/certbot-cloud-init.log
+```
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| Let's Encrypt fails | Ensure DNS points to VPS IP, then re-apply |
+| Can't access services | Check UFW rules and Nginx config |
+| Docker stack not running | Check `docker ps` and compose logs |
+| Cloudflare DNS missing | Verify `cloudflare_zone_id` is correct |
+
+## Outputs
+
+| Output | Description |
+|--------|-------------|
+| `droplet_ip` | Public IP address of the VPS |
+| `cloudflare_dns_record` | DNS record hostname (if using Cloudflare) |
+
+## Destroy Resources
 
 ```bash
 terraform destroy \
-  -var "do_token=YOUR_DO_TOKEN" \
-  -var "ssh_private_key=$(cat ~/.ssh/id_rsa)" \
-  -var "app_email=you@example.com"
+  -var "do_token=$TF_VAR_do_token" \
+  -var "ssh_private_key=$TF_VAR_ssh_private_key" \
+  -var "app_email=$TF_VAR_app_email"
 ```
 
-## ✅ Testing
+## Testing
 
-### Terraform test (HCL)
+Run module tests (plan-only, no real resources created):
 
-- Module `vps`: `cd modules/vps && terraform init -backend=false && terraform test`
-- Module `docker_stack`: `cd modules/docker_stack && terraform init -backend=false && terraform test`
-- Tests only run `plan` with dummy variables and `-backend=false`, no real resources created.
+```bash
+# Test VPS module
+cd modules/vps && terraform init -backend=false && terraform test
 
-## 📤 Outputs
+# Test Docker stack module
+cd modules/docker_stack && terraform init -backend=false && terraform test
+```
 
-| Output                  | Description                                         |
-| ----------------------- | --------------------------------------------------- |
-| `droplet_ip`            | Public IP of the VPS                                |
-| `cloudflare_dns_record` | DNS record hostname (if using Cloudflare)           |
-
-## 📌 Important Notes
-
-1. **Let's Encrypt**: Ensure DNS points to the VPS IP before running `terraform apply`, or re-run after getting the IP.
-
-2. **Cloudflare**: DNS records will be automatically created when `cloudflare_zone_id` is provided.
-
-3. **Boot time**: Cloud-init takes 2-5 minutes to complete Docker, Nginx, and SSL installation.
-
-4. **Debug**: SSH into the VPS and check logs:
-
-   ```bash
-   # Cloud-init logs
-   cat /var/log/cloud-init-output.log
-
-   # Certificate logs
-   cat /var/log/certbot-cloud-init.log
-
-   # Nginx status
-   systemctl status nginx
-   nginx -t
-
-   # Docker status
-   docker ps
-   docker compose logs
-   ```
-
-## 📄 License
+## License
 
 MIT

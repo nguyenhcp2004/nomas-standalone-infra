@@ -34,6 +34,8 @@ tmp/
 # Environment files (keep .example)
 .env
 .env.local
+/.claude
+CLAUDE.md
 
 # Environment-specific configs (keep example)
 environments/*.tfvars
