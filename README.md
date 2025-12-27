@@ -111,9 +111,10 @@ nomas-terraform/
 │   ├── mongodb/docker-compose.yml
 │   ├── redis-cifarm/docker-compose.yml
 │   └── kafka-cifarm/docker-compose.yml
+├── scripts/
+│   └── deploy-stacks.sh.tpl      # Deployment script template
 └── modules/
-    ├── vps/                      # DigitalOcean Droplet module
-    └── docker_stack/             # Docker Compose deployment via SSH
+    └── vps/                      # DigitalOcean Droplet module
 ```
 
 ## Available Stacks
@@ -287,7 +288,7 @@ terraform destroy
 Or destroy specific resources:
 ```bash
 # Destroy only docker stacks (keeps VPS)
-terraform destroy -target=module.docker_stacks
+terraform destroy -target=null_resource.all_docker_stacks
 
 # Destroy only nginx apps config
 terraform destroy -target=null_resource.nginx_apps
@@ -302,9 +303,9 @@ main.tf
   ├── module.vps (DigitalOcean Droplet + cloud-init)
   │     └── Installs Docker, Nginx, UFW, Certbot
   │
-  ├── module.docker_stacks (for each stack)
-  │     └── Copies compose file via SSH
-  │     └── Runs docker compose up
+  ├── null_resource.all_docker_stacks (sequential deployment)
+  │     └── Uploads deployment script via SSH
+  │     └── Deploys all stacks in single connection
   │
   └── null_resource.nginx_apps (when apps configured)
         └── Uploads Nginx config via SSH
@@ -320,6 +321,16 @@ main.tf
 5. **Install Nginx**
 6. **Install Certbot** (if `enable_https = true`)
 
+### Docker Stack Deployment
+
+All Docker stacks are deployed **sequentially in a single SSH connection**:
+
+- Single `cloud-init status --wait` check (no redundant polling)
+- Script uploaded via `file` provisioner with line ending fix (CRLF → LF)
+- Stacks deployed one after another: mongodb → redis-cifarm → kafka-cifarm
+- No bandwidth competition between parallel connections
+- Faster and more reliable than parallel deployment
+
 ## Testing
 
 Run module tests (plan-only, no real resources created):
@@ -327,9 +338,6 @@ Run module tests (plan-only, no real resources created):
 ```bash
 # Test VPS module
 cd modules/vps && terraform init -backend=false && terraform test
-
-# Test Docker stack module
-cd modules/docker_stack && terraform init -backend=false && terraform test
 ```
 
 ## License

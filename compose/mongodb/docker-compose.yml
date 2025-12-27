@@ -12,7 +12,7 @@ services:
       - MONGODB_REPLICA_SET_KEY=replicasetkey
       - MONGODB_ROOT_PASSWORD=Cuong123_A
     ports:
-      - "27018:27017"
+      - "27017:27017"
 
   mongodb-sharded-2:
     image: docker.io/bitnamilegacy/mongodb-sharded:8.0
@@ -152,5 +152,3 @@ volumes:
     driver: local
   cfg_sec_data:
     driver: local
-
-
