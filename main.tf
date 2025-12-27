@@ -83,12 +83,13 @@ module "docker_stacks" {
 
   source = "./modules/docker_stack"
 
-  host            = module.vps.ip
-  ssh_user        = var.ssh_user
-  ssh_private_key = var.ssh_private_key
-  ssh_password    = var.ssh_password
-  compose_source  = local.compose_map[each.value]
-  compose_dest    = "/root/${each.value}/docker-compose.yml"
+  host             = module.vps.ip
+  ssh_user         = var.ssh_user
+  ssh_private_key  = var.ssh_private_key
+  ssh_password     = var.ssh_password
+  compose_source   = local.compose_map[each.value]
+  compose_content  = file("${path.module}/${local.compose_map[each.value]}")
+  compose_dest     = "/root/${each.value}/docker-compose.yml"
   compose_checksum = filebase64sha256(local.compose_map[each.value])
 }
 

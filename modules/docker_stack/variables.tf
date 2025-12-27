@@ -33,10 +33,11 @@ variable "ssh_password" {
 variable "compose_source" {
   type        = string
   description = "Local path to docker-compose file."
-  validation {
-    condition     = length(var.compose_source) > 0
-    error_message = "The compose_source must not be empty."
-  }
+}
+
+variable "compose_content" {
+  type        = string
+  description = "Content of docker-compose file (used for reliable transfer)."
 }
 
 variable "compose_dest" {
