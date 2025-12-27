@@ -34,7 +34,7 @@ variable "region" {
 
 variable "size" {
   type    = string
-  default = "s-4vcpu-8gb"
+  default = "s-2vcpu-4gb"
 }
 
 variable "image" {
@@ -60,18 +60,15 @@ variable "ssh_user" {
 variable "ssh_private_key" {
   type        = string
   sensitive   = true
-  description = "SSH private key content for authenticating with the VPS. Required for docker_stack deployment."
+  default     = ""
+  description = "SSH private key content for authenticating with the VPS. Alternative to ssh_password."
 }
 
 variable "ssh_password" {
   type        = string
   sensitive   = true
   default     = ""
-  description = "DEPRECATED: Use ssh_private_key instead. SSH password authentication is insecure."
-  validation {
-    condition     = var.ssh_password == ""
-    error_message = "SSH password authentication is deprecated and insecure. Please use ssh_private_key instead."
-  }
+  description = "SSH password for authenticating with the VPS. Alternative to ssh_private_key."
 }
 
 variable "compose_source" {

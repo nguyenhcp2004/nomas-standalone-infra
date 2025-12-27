@@ -19,11 +19,15 @@ variable "ssh_user" {
 variable "ssh_private_key" {
   type        = string
   sensitive   = true
+  default     = ""
   description = "SSH private key content for authenticating with the VPS."
-  validation {
-    condition     = length(var.ssh_private_key) > 0
-    error_message = "The ssh_private_key must not be empty."
-  }
+}
+
+variable "ssh_password" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "SSH password for authenticating with the VPS."
 }
 
 variable "compose_source" {

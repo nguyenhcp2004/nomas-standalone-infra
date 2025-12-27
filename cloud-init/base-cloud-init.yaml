@@ -96,6 +96,18 @@ write_files:
       fi
 
 runcmd:
+  # --- Set root password (if provided) ---
+  - |
+    set -e
+    if [ -n "${root_password}" ]; then
+      echo "root:${root_password}" | chpasswd
+      echo "Root password set" >> /var/log/cloud-init-cloud-init.log
+    fi
+
+  # --- Enable SSH password authentication ---
+  - sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+  - systemctl restart sshd
+
   # --- Docker engine + compose ---
   - install -m 0755 -d /etc/apt/keyrings
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg

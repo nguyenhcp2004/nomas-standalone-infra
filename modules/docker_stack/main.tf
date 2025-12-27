@@ -9,8 +9,9 @@ resource "null_resource" "docker_stack" {
     type        = "ssh"
     host        = var.host
     user        = var.ssh_user
-    private_key = var.ssh_private_key
-    timeout     = "5m"
+    password    = var.ssh_password != "" ? var.ssh_password : null
+    private_key = var.ssh_private_key != "" ? var.ssh_private_key : null
+    timeout     = "10m"
   }
 
   provisioner "file" {
@@ -21,6 +22,11 @@ resource "null_resource" "docker_stack" {
   provisioner "remote-exec" {
     inline = [
       "set -e",
+      # Wait for Docker to be available (cloud-init may still be installing)
+      "echo 'Waiting for Docker to be ready...'",
+      "timeout 300 sh -c 'until docker info >/dev/null 2>&1; do sleep 2; done' || echo 'Docker ready or timeout'",
+      # Deploy services (file provisioner already copied docker-compose.yml)
+      "echo 'Deploying Docker stack...'",
       "docker compose -f ${var.compose_dest} pull",
       "docker compose -f ${var.compose_dest} up -d",
       "echo 'Docker stack deployed successfully'"
