@@ -45,19 +45,6 @@ variable "user_data" {
   description = "Cloud-init user data content."
 }
 
-variable "ssh_user" {
-  type        = string
-  default     = "root"
-  description = "SSH user for waiting on cloud-init."
-}
-
-variable "ssh_password" {
-  type        = string
-  default     = ""
-  sensitive   = true
-  description = "SSH password for waiting on cloud-init."
-}
-
 variable "tags" {
   type        = list(string)
   default     = ["terraform-managed", "docker-stack"]

@@ -46,10 +46,12 @@ provider "docker" {
 # }
 
 locals {
-  compose_map = {
-    mongodb       = "compose/mongodb/docker-compose.yml"
-    redis-cifarm  = "compose/redis-cifarm/docker-compose.yml"
-    kafka-cifarm  = "compose/kafka-cifarm/docker-compose.yml"
+  # Read all compose file contents locally for transfer via SSH
+  compose_contents = {
+    for stack in var.stacks : stack => {
+      content = file("${path.module}/compose/${stack}/docker-compose.yml")
+      dest     = "/root/${stack}/docker-compose.yml"
+    }
   }
 }
 module "vps" {
@@ -61,8 +63,6 @@ module "vps" {
   image        = var.image
   ssh_keys     = var.ssh_keys
   tags         = var.droplet_tags
-  ssh_user     = var.ssh_user
-  ssh_password = var.ssh_password
 
   user_data = templatefile(
     "${path.module}/cloud-init/base-cloud-init.yaml",
@@ -78,19 +78,41 @@ module "vps" {
   )
 }
 
-module "docker_stacks" {
-  for_each = toset(var.stacks)
+# Deploy all Docker stacks in a single SSH connection (sequential deployment)
+resource "null_resource" "all_docker_stacks" {
+  # Trigger when stacks list or any compose file changes
+  triggers = {
+    stacks_json     = jsonencode(var.stacks)
+    content_hashes  = jsonencode({ for k, v in local.compose_contents : k => sha256(v.content) })
+  }
 
-  source = "./modules/docker_stack"
+  depends_on = [module.vps]
 
-  host             = module.vps.ip
-  ssh_user         = var.ssh_user
-  ssh_private_key  = var.ssh_private_key
-  ssh_password     = var.ssh_password
-  compose_source   = local.compose_map[each.value]
-  compose_content  = file("${path.module}/${local.compose_map[each.value]}")
-  compose_dest     = "/root/${each.value}/docker-compose.yml"
-  compose_checksum = filebase64sha256(local.compose_map[each.value])
+  connection {
+    type        = "ssh"
+    host        = module.vps.ip
+    user        = var.ssh_user
+    password    = var.ssh_password != "" ? var.ssh_password : null
+    private_key = var.ssh_private_key != "" ? var.ssh_private_key : null
+    timeout     = "10m"
+  }
+
+  provisioner "file" {
+    content = templatefile("${path.module}/scripts/deploy-stacks.sh.tpl", {
+      stacks = var.stacks
+      compose_contents = local.compose_contents
+    })
+    destination = "/tmp/deploy-stacks.sh"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sed -i 's/\\r$//' /tmp/deploy-stacks.sh",
+      "chmod +x /tmp/deploy-stacks.sh",
+      "bash /tmp/deploy-stacks.sh",
+      "rm /tmp/deploy-stacks.sh"
+    ]
+  }
 }
 
 # Configure Nginx apps and SSL (runs after droplet is ready and when apps change)
@@ -105,8 +127,8 @@ resource "null_resource" "nginx_apps" {
     app_email    = var.app_email
   }
 
-  # Wait for droplet to be ready
-  depends_on = [module.docker_stacks]
+  # Wait for docker stacks to complete
+  depends_on = [null_resource.all_docker_stacks]
 
   connection {
     type        = "ssh"
