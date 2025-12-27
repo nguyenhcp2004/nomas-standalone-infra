@@ -17,21 +17,26 @@ resource "null_resource" "docker_stack" {
   provisioner "remote-exec" {
     inline = [
       "set -e",
-      # Wait for Docker to be available (cloud-init may still be installing)
-      "echo 'Waiting for Docker to be ready...'",
-      "timeout 300 sh -c 'until docker info >/dev/null 2>&1; do sleep 2; done' || echo 'Docker ready or timeout'",
+      # Wait for cloud-init to complete (more efficient than polling docker info)
+      "echo 'Waiting for cloud-init to complete...'",
+      "cloud-init status --wait --long 2>&1 || echo 'Cloud-init already completed'",
+      # Verify Docker is ready
+      "echo 'Verifying Docker is ready...'",
+      "docker info >/dev/null || (echo 'Docker not ready, waiting...' && sleep 30 && docker info)",
       # Prepare deployment directory
       "echo 'Preparing deployment directory...'",
       "dir=$(dirname ${var.compose_dest})",
       "test -f $dir && rm -f $dir || true",
       "mkdir -p $dir",
       # Write docker-compose.yml content directly
+      "echo 'Writing docker-compose.yml...'",
       "cat > ${var.compose_dest} <<'EOF_COMPOSE'",
       var.compose_content,
       "EOF_COMPOSE",
       # Deploy services
-      "echo 'Deploying Docker stack...'",
+      "echo 'Pulling Docker images...'",
       "docker compose -f ${var.compose_dest} pull",
+      "echo 'Starting containers...'",
       "docker compose -f ${var.compose_dest} up -d",
       "echo 'Docker stack deployed successfully'"
     ]
