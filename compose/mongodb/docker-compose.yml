@@ -9,10 +9,13 @@ services:
       - MONGODB_SHARDING_MODE=mongos
       - MONGODB_CFG_PRIMARY_HOST=mongodb-cfg-primary
       - MONGODB_CFG_REPLICA_SET_NAME=cfgreplicaset
-      - MONGODB_REPLICA_SET_KEY=replicasetkey
-      - MONGODB_ROOT_PASSWORD=Cuong123_A
-    ports:
-      - "27017:27017"
+      - MONGODB_REPLICA_SET_KEY=${MONGODB_REPLICA_SET_KEY}
+      - MONGODB_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
+    # Internal only - do not expose to internet
+    expose:
+      - "27017"
+    networks:
+      - mongodb-net
 
   mongodb-sharded-2:
     image: docker.io/bitnamilegacy/mongodb-sharded:8.0
@@ -21,8 +24,10 @@ services:
       - MONGODB_SHARDING_MODE=mongos
       - MONGODB_CFG_PRIMARY_HOST=mongodb-cfg-primary
       - MONGODB_CFG_REPLICA_SET_NAME=cfgreplicaset
-      - MONGODB_REPLICA_SET_KEY=replicasetkey
-      - MONGODB_ROOT_PASSWORD=Cuong123_A
+      - MONGODB_REPLICA_SET_KEY=${MONGODB_REPLICA_SET_KEY}
+      - MONGODB_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
+    networks:
+      - mongodb-net
 
   mongodb-shard0-primary:
     image: docker.io/bitnamilegacy/mongodb-sharded:8.0
@@ -30,12 +35,14 @@ services:
       - MONGODB_ADVERTISED_HOSTNAME=mongodb-shard0-primary
       - MONGODB_SHARDING_MODE=shardsvr
       - MONGODB_MONGOS_HOST=mongodb-sharded
-      - MONGODB_ROOT_PASSWORD=Cuong123_A
+      - MONGODB_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
       - MONGODB_REPLICA_SET_MODE=primary
-      - MONGODB_REPLICA_SET_KEY=replicasetkey
+      - MONGODB_REPLICA_SET_KEY=${MONGODB_REPLICA_SET_KEY}
       - MONGODB_REPLICA_SET_NAME=shard0
     volumes:
       - "shard0_data:/bitnami"
+    networks:
+      - mongodb-net
 
   mongodb-shard0-secondary:
     image: docker.io/bitnamilegacy/mongodb-sharded:8.0
@@ -45,12 +52,14 @@ services:
       - MONGODB_ADVERTISED_HOSTNAME=mongodb-shard0-secondary
       - MONGODB_REPLICA_SET_MODE=secondary
       - MONGODB_PRIMARY_HOST=mongodb-shard0-primary
-      - MONGODB_PRIMARY_ROOT_PASSWORD=Cuong123_A
-      - MONGODB_REPLICA_SET_KEY=replicasetkey
+      - MONGODB_PRIMARY_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
+      - MONGODB_REPLICA_SET_KEY=${MONGODB_REPLICA_SET_KEY}
       - MONGODB_SHARDING_MODE=shardsvr
       - MONGODB_REPLICA_SET_NAME=shard0
     volumes:
       - "shard0_sec_data:/bitnami"
+    networks:
+      - mongodb-net
 
   mongodb-shard1-primary:
     image: docker.io/bitnamilegacy/mongodb-sharded:8.0
@@ -58,12 +67,14 @@ services:
       - MONGODB_ADVERTISED_HOSTNAME=mongodb-shard1-primary
       - MONGODB_SHARDING_MODE=shardsvr
       - MONGODB_MONGOS_HOST=mongodb-sharded
-      - MONGODB_ROOT_PASSWORD=Cuong123_A
+      - MONGODB_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
       - MONGODB_REPLICA_SET_MODE=primary
-      - MONGODB_REPLICA_SET_KEY=replicasetkey
+      - MONGODB_REPLICA_SET_KEY=${MONGODB_REPLICA_SET_KEY}
       - MONGODB_REPLICA_SET_NAME=shard1
     volumes:
       - "shard1_data:/bitnami"
+    networks:
+      - mongodb-net
 
   mongodb-shard1-secondary:
     image: docker.io/bitnamilegacy/mongodb-sharded:8.0
@@ -73,12 +84,14 @@ services:
       - MONGODB_ADVERTISED_HOSTNAME=mongodb-shard1-secondary
       - MONGODB_REPLICA_SET_MODE=secondary
       - MONGODB_PRIMARY_HOST=mongodb-shard1-primary
-      - MONGODB_PRIMARY_ROOT_PASSWORD=Cuong123_A
-      - MONGODB_REPLICA_SET_KEY=replicasetkey
+      - MONGODB_PRIMARY_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
+      - MONGODB_REPLICA_SET_KEY=${MONGODB_REPLICA_SET_KEY}
       - MONGODB_SHARDING_MODE=shardsvr
       - MONGODB_REPLICA_SET_NAME=shard1
     volumes:
       - "shard1_sec_data:/bitnami"
+    networks:
+      - mongodb-net
 
   mongodb-shard2-primary:
     image: docker.io/bitnamilegacy/mongodb-sharded:8.0
@@ -86,12 +99,14 @@ services:
       - MONGODB_ADVERTISED_HOSTNAME=mongodb-shard2-primary
       - MONGODB_SHARDING_MODE=shardsvr
       - MONGODB_MONGOS_HOST=mongodb-sharded
-      - MONGODB_ROOT_PASSWORD=Cuong123_A
+      - MONGODB_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
       - MONGODB_REPLICA_SET_MODE=primary
-      - MONGODB_REPLICA_SET_KEY=replicasetkey
+      - MONGODB_REPLICA_SET_KEY=${MONGODB_REPLICA_SET_KEY}
       - MONGODB_REPLICA_SET_NAME=shard2
     volumes:
       - "shard2_data:/bitnami"
+    networks:
+      - mongodb-net
 
   mongodb-shard2-secondary:
     image: docker.io/bitnamilegacy/mongodb-sharded:8.0
@@ -101,24 +116,28 @@ services:
       - MONGODB_ADVERTISED_HOSTNAME=mongodb-shard2-secondary
       - MONGODB_REPLICA_SET_MODE=secondary
       - MONGODB_PRIMARY_HOST=mongodb-shard2-primary
-      - MONGODB_PRIMARY_ROOT_PASSWORD=Cuong123_A
-      - MONGODB_REPLICA_SET_KEY=replicasetkey
+      - MONGODB_PRIMARY_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
+      - MONGODB_REPLICA_SET_KEY=${MONGODB_REPLICA_SET_KEY}
       - MONGODB_SHARDING_MODE=shardsvr
       - MONGODB_REPLICA_SET_NAME=shard2
     volumes:
       - "shard2_sec_data:/bitnami"
+    networks:
+      - mongodb-net
 
   mongodb-cfg-primary:
     image: docker.io/bitnamilegacy/mongodb-sharded:8.0
     environment:
       - MONGODB_ADVERTISED_HOSTNAME=mongodb-cfg-primary
       - MONGODB_SHARDING_MODE=configsvr
-      - MONGODB_ROOT_PASSWORD=Cuong123_A
+      - MONGODB_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
       - MONGODB_REPLICA_SET_MODE=primary
-      - MONGODB_REPLICA_SET_KEY=replicasetkey
+      - MONGODB_REPLICA_SET_KEY=${MONGODB_REPLICA_SET_KEY}
       - MONGODB_REPLICA_SET_NAME=cfgreplicaset
     volumes:
       - "cfg_data:/bitnami"
+    networks:
+      - mongodb-net
 
   mongodb-cfg-secondary:
     image: docker.io/bitnamilegacy/mongodb-sharded:8.0
@@ -128,12 +147,14 @@ services:
       - MONGODB_ADVERTISED_HOSTNAME=mongodb-cfg-secondary
       - MONGODB_REPLICA_SET_MODE=secondary
       - MONGODB_PRIMARY_HOST=mongodb-cfg-primary
-      - MONGODB_PRIMARY_ROOT_PASSWORD=Cuong123_A
-      - MONGODB_REPLICA_SET_KEY=replicasetkey
+      - MONGODB_PRIMARY_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
+      - MONGODB_REPLICA_SET_KEY=${MONGODB_REPLICA_SET_KEY}
       - MONGODB_REPLICA_SET_NAME=cfgreplicaset
       - MONGODB_SHARDING_MODE=configsvr
     volumes:
       - "cfg_sec_data:/bitnami"
+    networks:
+      - mongodb-net
 
 volumes:
   shard0_data:
@@ -152,3 +173,7 @@ volumes:
     driver: local
   cfg_sec_data:
     driver: local
+
+networks:
+  mongodb-net:
+    driver: bridge

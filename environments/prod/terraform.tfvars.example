@@ -1,0 +1,72 @@
+# =============================================================================
+# Production Environment Variables
+# =============================================================================
+# Copy this file to terraform.tfvars and fill in your values
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Project Metadata
+# -----------------------------------------------------------------------------
+project_name = "nomas"
+environment  = "prod"
+
+# -----------------------------------------------------------------------------
+# REQUIRED: Secrets & Authentication
+# -----------------------------------------------------------------------------
+
+# DigitalOcean API Token
+# Get yours from: https://cloud.digitalocean.com/account/api/tokens
+do_token = "dop_v1_xxx..."
+
+# SSH Authentication - Use SSH keys for production (recommended)
+ssh_password     = ""
+ssh_user         = "root"
+ssh_private_key  = ""  # Add your private key content
+ssh_keys         = []  # Add DigitalOcean SSH key fingerprints
+
+# Email for Let's Encrypt SSL certificates
+app_email = "your-email@example.com"
+
+# -----------------------------------------------------------------------------
+# VPS Configuration
+# -----------------------------------------------------------------------------
+region        = "sgp1"
+size          = "s-4vcpu-8gb"  # Larger size for production
+image         = "ubuntu-22-04-x64"
+droplet_tags  = ["terraform-managed", "docker-stack", "production"]
+
+# -----------------------------------------------------------------------------
+# Docker Stack Configuration
+# -----------------------------------------------------------------------------
+# Available stacks: "mongodb", "redis-cifarm", "kafka-cifarm"
+stacks = ["mongodb", "redis-cifarm", "kafka-cifarm"]
+
+# -----------------------------------------------------------------------------
+# Application Configuration
+# -----------------------------------------------------------------------------
+apps = []  # Add production apps, e.g., [{domain = "example.com", port = 3000}]
+
+# -----------------------------------------------------------------------------
+# SSL/HTTPS Configuration
+# -----------------------------------------------------------------------------
+enable_https        = true
+use_cloudflare_cert = true  # Use Cloudflare Origin Cert for production
+
+# -----------------------------------------------------------------------------
+# Cloudflare Configuration (Optional)
+# -----------------------------------------------------------------------------
+cloudflare_api_token    = ""
+cloudflare_zone_id      = ""
+cloudflare_proxied      = true
+cloudflare_origin_cert  = ""
+cloudflare_origin_key   = ""
+
+# -----------------------------------------------------------------------------
+# Database Credentials
+# -----------------------------------------------------------------------------
+# IMPORTANT: Use strong, unique passwords for production!
+# Generate using: openssl rand -base64 32
+mongodb_root_password     = "CHANGE_ME_USE_STRONG_PASSWORD"
+mongodb_replica_set_key   = "CHANGE_ME_USE_STRONG_REPLICA_KEY"
+redis_password            = "CHANGE_ME_USE_STRONG_PASSWORD"
+kafka_client_passwords    = "CHANGE_ME_USE_STRONG_PASSWORD"

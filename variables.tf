@@ -180,3 +180,32 @@ variable "cloudflare_origin_key" {
   sensitive   = true
   description = "Cloudflare Origin Certificate private key (PEM format). Required if use_cloudflare_cert = true."
 }
+
+# Database credentials for Docker stacks
+variable "mongodb_root_password" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "MongoDB root password. Leave empty to use a default password (NOT recommended for production)."
+}
+
+variable "mongodb_replica_set_key" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "MongoDB replica set key for sharded cluster. Leave empty to use a default key (NOT recommended for production)."
+}
+
+variable "redis_password" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Redis password. Leave empty to use a default password (NOT recommended for production)."
+}
+
+variable "kafka_client_passwords" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Kafka client password for SASL authentication. Leave empty to use a default password (NOT recommended for production)."
+}

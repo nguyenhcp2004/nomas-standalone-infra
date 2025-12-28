@@ -7,8 +7,11 @@ services:
   kafka:
     image: docker.io/bitnamilegacy/kafka:3.9
     container_name: kafka
-    ports:
-      - "9092:9092"
+    # Internal only - do not expose to internet
+    expose:
+      - "9092"
+      - "9093"
+      - "9094"
     volumes:
       - kafka_data:/bitnami
     environment:
@@ -27,14 +30,18 @@ services:
       - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
       - KAFKA_CLIENT_LISTENER_NAME=LISTENER
       - KAFKA_CLIENT_USERS=kafka
-      - KAFKA_CLIENT_PASSWORDS=Cuong123_A
+      - KAFKA_CLIENT_PASSWORDS=${KAFKA_CLIENT_PASSWORDS}
 
       # Controller/Inter-broker
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
+    networks:
+      - kafka-net
 
 volumes:
   kafka_data:
     driver: local
 
-
+networks:
+  kafka-net:
+    driver: bridge

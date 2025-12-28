@@ -34,11 +34,15 @@ tmp/
 # Environment files (keep .example)
 .env
 .env.local
+compose/**/.env
+!compose/**/.env.example
 /.claude
 CLAUDE.md
 
 # Environment-specific configs (keep example)
-environments/*.tfvars
-!environments/example.tfvars
+environments/*/terraform.tfvars
+!environments/*/terraform.tfvars.example
+environments/**/*.tfvars
+!environments/**/*.tfvars.example
 
 
