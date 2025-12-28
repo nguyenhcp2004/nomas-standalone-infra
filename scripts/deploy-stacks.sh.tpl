@@ -33,11 +33,22 @@ export REDIS_PASSWORD='${redis_password}'
 export KAFKA_CLIENT_PASSWORDS='${kafka_client_passwords}'
 %{ endif ~}
 
+%{ if stack == "arcane" ~}
+export ENCRYPTION_KEY='${arcane_encryption_key}'
+export JWT_SECRET='${arcane_jwt_secret}'
+%{ endif ~}
+
+%{ if stack == "grafana-loki-prometheus" ~}
+export GF_SECURITY_ADMIN_USER='${grafana_admin_user:-admin}'
+export GF_SECURITY_ADMIN_PASSWORD='${grafana_admin_password}'
+export GF_SERVER_ROOT_URL='${grafana_root_url:-http://localhost:3000}'
+%{ endif ~}
+
 docker compose pull
 docker compose up -d
 
 # Clear exported variables from shell
-unset MONGODB_ROOT_PASSWORD MONGODB_REPLICA_SET_KEY REDIS_PASSWORD KAFKA_CLIENT_PASSWORDS 2>/dev/null || true
+unset MONGODB_ROOT_PASSWORD MONGODB_REPLICA_SET_KEY REDIS_PASSWORD KAFKA_CLIENT_PASSWORDS ENCRYPTION_KEY JWT_SECRET GF_SECURITY_ADMIN_USER GF_SECURITY_ADMIN_PASSWORD GF_SERVER_ROOT_URL 2>/dev/null || true
 %{ endfor ~}
 
 echo ""

@@ -38,7 +38,7 @@ droplet_tags  = ["terraform-managed", "docker-stack", "dev"]
 # -----------------------------------------------------------------------------
 # Docker Stack Configuration
 # -----------------------------------------------------------------------------
-# Available stacks: "mongodb", "redis-cifarm", "kafka-cifarm"
+# Available stacks: "mongodb", "redis-cifarm", "kafka-cifarm", "arcane", "grafana-loki-prometheus"
 stacks = ["mongodb"]
 
 # -----------------------------------------------------------------------------
@@ -69,3 +69,16 @@ mongodb_root_password     = "CHANGE_ME_dev_mongo_password"
 mongodb_replica_set_key   = "CHANGE_ME_dev_replica_key"
 redis_password            = "CHANGE_ME_dev_redis_password"
 kafka_client_passwords    = "CHANGE_ME_dev_kafka_password"
+
+# -----------------------------------------------------------------------------
+# Arcane Credentials
+# -----------------------------------------------------------------------------
+arcane_encryption_key     = "CHANGE_ME_dev_arcane_encryption_key"
+arcane_jwt_secret         = "CHANGE_ME_dev_arcane_jwt_secret"
+
+# -----------------------------------------------------------------------------
+# Grafana Credentials
+# -----------------------------------------------------------------------------
+grafana_admin_user        = "admin"
+grafana_admin_password    = "CHANGE_ME_dev_grafana_password"
+grafana_root_url          = ""  # Set to https://grafana.example.com when using custom domain

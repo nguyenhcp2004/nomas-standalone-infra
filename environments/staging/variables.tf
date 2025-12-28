@@ -151,3 +151,38 @@ variable "kafka_client_passwords" {
   default     = ""
   description = "Kafka client password"
 }
+
+variable "arcane_encryption_key" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "Arcane encryption key"
+}
+
+variable "arcane_jwt_secret" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "Arcane JWT secret"
+}
+
+variable "grafana_admin_user" {
+  type        = string
+  sensitive   = true
+  default     = "admin"
+  description = "Grafana admin username"
+}
+
+variable "grafana_admin_password" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "Grafana admin password"
+}
+
+variable "grafana_root_url" {
+  type        = string
+  sensitive   = false
+  default     = ""
+  description = "Grafana server root URL (e.g., https://grafana.example.com)"
+}
