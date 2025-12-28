@@ -12,6 +12,7 @@ This Terraform project automates the complete setup of a production-ready VPS:
 - **Configures** Nginx as a reverse proxy for your applications
 - **Secures** with Let's Encrypt SSL certificates
 - **Supports** SSH password or key-based authentication
+- **Multi-environment** support (dev, staging, prod) with isolated states
 
 ## Quick Start
 
@@ -24,26 +25,98 @@ This Terraform project automates the complete setup of a production-ready VPS:
 | SSH Key OR Password | For Docker stack deployment |
 | Domain (optional) | For SSL certificates |
 
-### 1. Clone and Initialize
+### 1. Clone
 
 ```bash
 git clone <repository-url>
 cd nomas-terraform
-terraform init
 ```
 
-### 2. Configure Variables
+### 2. Configure Environment
 
-Edit `terraform.tfvars` with your values:
+Each environment has its own configuration. Copy the example file:
+
+```bash
+# For dev environment
+cp environments/dev/terraform.tfvars.example environments/dev/terraform.tfvars
+
+# Edit with your values
+nano environments/dev/terraform.tfvars
+```
+
+### 3. Deploy
+
+```bash
+cd environments/dev
+terraform init
+terraform plan
+terraform apply
+```
+
+## Multi-Environment Deployment
+
+This project uses **environment-based directories** following HashiCorp best practices:
+
+```
+environments/
+├── dev/          # Development environment
+├── staging/      # Staging environment
+└── prod/         # Production environment
+```
+
+### Deploy to Different Environments
+
+```bash
+# Dev
+cd environments/dev
+terraform init
+terraform apply -var-file=terraform.tfvars
+
+# Staging
+cd ../staging
+terraform init
+terraform apply -var-file=terraform.tfvars
+
+# Production
+cd ../prod
+terraform init
+terraform apply -var-file=terraform.tfvars
+```
+
+Each environment has:
+- **Separate state** (stored in Terraform Cloud or local)
+- **Isolated configuration** (droplet size, regions, etc.)
+- **Independent credentials** (different passwords, tokens)
+
+### Environment-Specific Settings
+
+| Environment | Droplet Size | Use Case |
+|-------------|--------------|----------|
+| `dev` | `s-1vcpu-1gb` | Development/testing |
+| `staging` | `s-2vcpu-4gb` | Pre-production testing |
+| `prod` | `s-4vcpu-8gb` | Production workloads |
+
+## Configuration
+
+### Required Variables
+
+Edit `terraform.tfvars` in your environment directory:
 
 ```hcl
 # Required
 do_token     = "dop_v1_xxx"              # DigitalOcean API Token
-ssh_password = "your_password"           # OR use ssh_private_key
-app_email    = "you@example.com"         # For Let's Encrypt
+ssh_password = "your_secure_password"     # OR use ssh_private_key
+app_email    = "you@example.com"          # For Let's Encrypt
 
-# VPS Settings (optional, have defaults)
-droplet_name = "stack-1vps"
+# Database credentials (required for stacks)
+mongodb_root_password   = "strong_password_here"
+mongodb_replica_set_key = "unique_key_here"
+redis_password          = "strong_password_here"
+kafka_client_passwords  = "strong_password_here"
+
+# VPS Settings
+project_name = "myproject"
+environment  = "dev"
 region       = "sgp1"
 size         = "s-2vcpu-4gb"
 
@@ -54,12 +127,13 @@ stacks = ["mongodb", "redis-cifarm", "kafka-cifarm"]
 apps = []
 ```
 
-### 3. Deploy
+### Optional Variables
 
-```bash
-terraform plan    # Preview changes
-terraform apply   # Deploy
-```
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `droplet_tags` | `["docker-stack"]` | Droplet tags |
+| `enable_https` | `true` | Enable Let's Encrypt |
+| `ssh_private_key` | `""` | SSH private key (alternative to password) |
 
 ## Deployment Flow
 
@@ -68,6 +142,7 @@ terraform apply   # Deploy
 Deploy with empty `apps` to create the droplet and Docker stacks:
 
 ```bash
+cd environments/dev
 terraform apply
 ```
 
@@ -101,29 +176,41 @@ This will configure Nginx reverse proxy and obtain Let's Encrypt SSL certificate
 
 ```
 nomas-terraform/
-├── main.tf                       # Root configuration
-├── variables.tf                  # Input variable definitions
-├── terraform.tfvars              # Your variables (gitignored)
-├── cloud-init/
-│   ├── base-cloud-init.yaml      # Cloud-init script for Droplet setup
-│   └── nginx-app.conf.tpl        # Nginx config template for apps
+├── environments/                 # Environment-specific configurations
+│   ├── dev/
+│   │   ├── main.tf              # Dev configuration
+│   │   ├── backend.tf           # Terraform Cloud backend
+│   │   ├── variables.tf         # Variable definitions
+│   │   └── terraform.tfvars     # Dev values (gitignored)
+│   ├── staging/
+│   └── prod/
+├── modules/                      # Reusable Terraform modules
+│   ├── vps/                      # DigitalOcean Droplet module
+│   └── docker_stack/             # Docker stack deployment module
 ├── compose/                      # Docker stack definitions
 │   ├── mongodb/docker-compose.yml
 │   ├── redis-cifarm/docker-compose.yml
 │   └── kafka-cifarm/docker-compose.yml
-├── scripts/
-│   └── deploy-stacks.sh.tpl      # Deployment script template
-└── modules/
-    └── vps/                      # DigitalOcean Droplet module
+├── cloud-init/
+│   ├── base-cloud-init.yaml      # Cloud-init script for Droplet setup
+│   └── nginx-app.conf.tpl        # Nginx config template for apps
+└── scripts/
+    └── deploy-stacks.sh.tpl      # Deployment script template
 ```
 
 ## Available Stacks
 
-| Stack | Description | Services | Default Port |
-|-------|-------------|----------|--------------|
-| `mongodb` | MongoDB Sharded Cluster | 3 shards + config servers | 27018 |
+| Stack | Description | Services | Internal Port |
+|-------|-------------|----------|---------------|
+| `mongodb` | MongoDB Sharded Cluster | 3 shards + config servers | 27017 |
 | `redis-cifarm` | Redis | Single instance | 6379 |
 | `kafka-cifarm` | Kafka | KRaft mode | 9092 |
+
+### Security Notes
+
+- **Ports are NOT exposed** to the internet - only accessible via internal Docker networks
+- Access services through Nginx reverse proxy with your domain
+- Environment variables are injected at runtime (no .env files on disk)
 
 ### Deploying Multiple Stacks
 
@@ -140,47 +227,83 @@ Each stack deploys to its own directory on the VPS:
 - `/root/redis-cifarm/docker-compose.yml`
 - `/root/kafka-cifarm/docker-compose.yml`
 
-## Configuration Reference
+## Terraform Cloud Integration
 
-### Authentication (Choose One)
+This project supports Terraform Cloud for remote state storage:
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `ssh_password` | Root password for SSH auth | Yes (or ssh_private_key) |
-| `ssh_private_key` | SSH private key content | Yes (or ssh_password) |
+### Setup
 
-**Note:** SSH password is automatically set on the droplet via cloud-init. Password authentication is enabled automatically.
+1. **Login to Terraform Cloud:**
+   ```bash
+   terraform login
+   ```
 
-### Required Variables
+2. **Configure workspace (Local execution mode):**
+   - Go to Terraform Cloud UI → Workspace
+   - Set **Execution Mode** to `Local`
+   - Set **Working Directory** to `environments/dev` (or staging/prod)
 
-| Variable | Description |
-|----------|-------------|
-| `do_token` | DigitalOcean API Token |
-| `app_email` | Email for Let's Encrypt certificates |
+3. **Initialize:**
+   ```bash
+   cd environments/dev
+   terraform init
+   ```
 
-### Droplet Settings
+### Benefits
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `droplet_name` | `stack-1vps` | Name of the Droplet |
-| `region` | `sgp1` | DigitalOcean region |
-| `size` | `s-2vcpu-4gb` | Droplet size slug |
-| `image` | `ubuntu-22-04-x64` | OS image |
-| `ssh_keys` | `[]` | List of SSH key fingerprints (DO) |
-| `droplet_tags` | `["terraform-managed"]` | Droplet tags |
+- **Remote state storage** with automatic locking
+- **State history** for rollback capability
+- **Team collaboration** with shared state
+- **Local execution** for privacy and flexibility
 
-### Stack Settings
+## Security
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `stacks` | `["mongodb"]` | List of stacks to deploy |
-| `apps` | `[]` | List of {domain, port} for Nginx proxy |
+### Secrets Management
 
-### SSL Settings
+**NEVER** commit `terraform.tfvars` to git. Each environment has:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `enable_https` | `true` | Enable Let's Encrypt certificates |
+```bash
+environments/
+├── dev/terraform.tfvars         # Gitignored
+├── dev/terraform.tfvars.example # Template (tracked)
+```
+
+Use one of these methods:
+- Copy `.tfvars.example` to `.tfvars` and fill in values
+- Environment variables: `export TF_VAR_do_token="xxx"`
+- Terraform Cloud workspace variables (for remote execution)
+
+### Database Credentials
+
+Database passwords are **not hardcoded** in compose files:
+- Docker Compose uses `${VARIABLE}` substitution
+- Credentials are injected at deployment time via environment variables
+- No `.env` files are stored on the VPS
+
+Generate strong passwords:
+```bash
+openssl rand -base64 32
+```
+
+### Firewall Rules
+
+UFW is automatically configured:
+
+| Port | Service | Allowed |
+|------|---------|---------|
+| 22 | SSH | Yes |
+| 80 | HTTP | Yes |
+| 443 | HTTPS | Yes |
+
+**Database ports are NOT exposed** - services run on internal Docker networks only.
+
+### SSH Access
+
+```bash
+# SSH into the deployed VPS
+ssh root@<droplet_ip>
+# Password: as set in ssh_password variable
+```
 
 ## Nginx Reverse Proxy
 
@@ -188,7 +311,7 @@ Configure the `apps` variable to expose services via domain:
 
 ```hcl
 apps = [
-  { domain = "mongo.example.com", port = 27018 },
+  { domain = "mongo.example.com", port = 27017 },
   { domain = "redis.example.com", port = 6379 },
   { domain = "kafka.example.com", port = 9092 },
   { domain = "api.example.com", port = 3000 },
@@ -199,34 +322,6 @@ Each domain will get:
 - Nginx server block with reverse proxy
 - Let's Encrypt SSL certificate
 - HTTP to HTTPS redirect
-
-## Security
-
-### Secrets Management
-
-**NEVER** commit `terraform.tfvars` to git. Use one of these methods:
-
-- `terraform.tfvars` (add to `.gitignore`)
-- Environment variables: `export TF_VAR_do_token="xxx"`
-- Terraform Cloud workspace variables
-
-### Firewall Rules
-
-UFW is automatically configured with:
-
-| Port | Service | Allowed |
-|------|---------|---------|
-| 22 | SSH | Yes |
-| 80 | HTTP | Yes |
-| 443 | HTTPS | Yes |
-
-### SSH Access
-
-```bash
-# SSH into the deployed VPS
-ssh root@<droplet_ip>
-# Password: as set in ssh_password variable
-```
 
 ## Troubleshooting
 
@@ -263,14 +358,14 @@ cat /var/log/certbot-cloud-init.log
 | SSH connection timeout | Wait 3-5 minutes for cloud-init to finish |
 | Docker not found | Cloud-init still installing, wait longer |
 | Let's Encrypt fails | Ensure DNS points to VPS IP, then re-apply |
-| Can't access services | Check UFW allows the port |
+| Can't access services | Services are internal-only, use Nginx proxy |
 
 ### Droplet Size Guide
 
 | Size | CPU | RAM | Price | Use Case |
 |------|-----|-----|-------|----------|
 | `s-1vcpu-1gb` | 1 | 1GB | $6/mo | Testing only |
-| `s-2vcpu-4gb` | 2 | 4GB | $24/mo | Small projects (default) |
+| `s-2vcpu-4gb` | 2 | 4GB | $24/mo | Small projects |
 | `s-4vcpu-8gb` | 4 | 8GB | $48/mo | Medium projects |
 
 ## Outputs
@@ -278,17 +373,19 @@ cat /var/log/certbot-cloud-init.log
 | Output | Description |
 |--------|-------------|
 | `droplet_ip` | Public IP address of the VPS |
+| `droplet_name` | Name of the created Droplet |
 
 ## Destroy Resources
 
 ```bash
+cd environments/dev
 terraform destroy
 ```
 
 Or destroy specific resources:
 ```bash
 # Destroy only docker stacks (keeps VPS)
-terraform destroy -target=null_resource.all_docker_stacks
+terraform destroy -target=null_resource.docker_stacks
 
 # Destroy only nginx apps config
 terraform destroy -target=null_resource.nginx_apps
@@ -299,12 +396,13 @@ terraform destroy -target=null_resource.nginx_apps
 ### Module Flow
 
 ```
-main.tf
+environments/dev/main.tf
   ├── module.vps (DigitalOcean Droplet + cloud-init)
   │     └── Installs Docker, Nginx, UFW, Certbot
   │
-  ├── null_resource.all_docker_stacks (sequential deployment)
+  ├── null_resource.docker_stacks (sequential deployment)
   │     └── Uploads deployment script via SSH
+  │     └── Injects environment variables (no .env files)
   │     └── Deploys all stacks in single connection
   │
   └── null_resource.nginx_apps (when apps configured)
@@ -323,13 +421,12 @@ main.tf
 
 ### Docker Stack Deployment
 
-All Docker stacks are deployed **sequentially in a single SSH connection**:
+All Docker stacks are deployed **sequentially** with environment variables:
 
-- Single `cloud-init status --wait` check (no redundant polling)
-- Script uploaded via `file` provisioner with line ending fix (CRLF → LF)
-- Stacks deployed one after another: mongodb → redis-cifarm → kafka-cifarm
-- No bandwidth competition between parallel connections
-- Faster and more reliable than parallel deployment
+- Database credentials injected via `export VAR=...`
+- No `.env` files stored on disk
+- Variables unset after deployment
+- Stacks run on isolated internal networks
 
 ## Testing
 
@@ -338,6 +435,9 @@ Run module tests (plan-only, no real resources created):
 ```bash
 # Test VPS module
 cd modules/vps && terraform init -backend=false && terraform test
+
+# Test docker_stack module
+cd modules/docker_stack && terraform init -backend=false && terraform test
 ```
 
 ## License
