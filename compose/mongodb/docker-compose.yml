@@ -15,6 +15,7 @@ services:
       - "27017:27017"
     networks:
       - mongodb-net
+      - __BACKEND_NETWORK_PLACEHOLDER__
 
   mongodb-shard0-primary:
     image: docker.io/bitnamilegacy/mongodb-sharded:8.0
@@ -88,3 +89,5 @@ volumes:
 networks:
   mongodb-net:
     driver: bridge
+  __BACKEND_NETWORK_PLACEHOLDER__:
+    external: true

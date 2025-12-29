@@ -41,6 +41,7 @@ module "vps" {
       cloudflare_origin_cert = var.use_cloudflare_cert ? var.cloudflare_origin_cert : ""
       cloudflare_origin_key  = var.use_cloudflare_cert ? var.cloudflare_origin_key : ""
       root_password          = var.ssh_password
+      backend_network_name   = var.backend_network_name
     }
   )
 }
@@ -85,12 +86,14 @@ resource "null_resource" "docker_stacks" {
       grafana_admin_user = var.grafana_admin_user != "" ? var.grafana_admin_user : "admin"
       grafana_admin_password = var.grafana_admin_password != "" ? var.grafana_admin_password : "ChangeMeGrafana123!"
       grafana_root_url = var.grafana_root_url != "" ? var.grafana_root_url : "http://localhost:3000"
+      backend_network_name = var.backend_network_name
     })
     destination = "/tmp/deploy-stacks.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
+      "export BACKEND_NETWORK_NAME='${var.backend_network_name}'",
       "sed -i 's/\\r$//' /tmp/deploy-stacks.sh",
       "chmod +x /tmp/deploy-stacks.sh",
       "bash /tmp/deploy-stacks.sh",

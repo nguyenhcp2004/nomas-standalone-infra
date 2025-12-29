@@ -82,3 +82,8 @@ arcane_jwt_secret         = "CHANGE_ME_dev_arcane_jwt_secret"
 grafana_admin_user        = "admin"
 grafana_admin_password    = "CHANGE_ME_dev_grafana_password"
 grafana_root_url          = ""  # Set to https://grafana.example.com when using custom domain
+
+# -----------------------------------------------------------------------------
+# Network Configuration
+# -----------------------------------------------------------------------------
+backend_network_name      = "backend-net"  # Docker network for cross-stack communication

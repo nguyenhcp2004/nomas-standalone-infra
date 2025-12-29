@@ -120,6 +120,9 @@ runcmd:
   - systemctl enable docker
   - systemctl start docker
 
+  # --- Create backend network for cross-stack communication ---
+  - docker network create ${backend_network_name} --driver bridge || echo "Network already exists"
+
   # --- UFW basic rules: SSH + HTTP/HTTPS ---
   - ufw allow OpenSSH
   - ufw allow "Nginx Full"

@@ -186,3 +186,10 @@ variable "grafana_root_url" {
   default     = ""
   description = "Grafana server root URL (e.g., https://grafana.example.com)"
 }
+
+variable "backend_network_name" {
+  type        = string
+  sensitive   = false
+  default     = "backend-net"
+  description = "Docker network name for cross-stack communication"
+}

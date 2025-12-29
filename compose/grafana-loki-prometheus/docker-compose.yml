@@ -80,6 +80,9 @@ services:
     container_name: grafana
     ports:
       - "3000:3000"
+    networks:
+      - monitoring
+      - __BACKEND_NETWORK_PLACEHOLDER__
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=false
       - GF_AUTH_DISABLE_LOGIN_FORM=false
@@ -161,3 +164,5 @@ volumes:
 networks:
   monitoring:
     driver: bridge
+  __BACKEND_NETWORK_PLACEHOLDER__:
+    external: true

@@ -16,6 +16,7 @@ services:
     restart: unless-stopped
     networks:
       - redis-net
+      - __BACKEND_NETWORK_PLACEHOLDER__
 
 volumes:
   redis_data:
@@ -24,3 +25,5 @@ volumes:
 networks:
   redis-net:
     driver: bridge
+  __BACKEND_NETWORK_PLACEHOLDER__:
+    external: true

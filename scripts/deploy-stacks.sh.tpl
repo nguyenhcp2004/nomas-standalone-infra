@@ -12,13 +12,19 @@ docker info >/dev/null || (echo 'Docker not ready, waiting 30s...' && sleep 30 &
 # =============================================================================
 echo ""
 echo "==> Phase 1: Preparing compose files..."
+BACKEND_NETWORK="${BACKEND_NETWORK_NAME:-backend-net}"
 %{ for stack in stacks ~}
 mkdir -p /root/${stack}
 cat > /root/${stack}/docker-compose.yml <<'EOF_COMPOSE_${stack}'
 ${compose_contents[stack].content}
 EOF_COMPOSE_${stack}
 %{ endfor ~}
-echo "Compose files ready."
+
+# Replace placeholder network name with actual network name
+for stack in %{ for stack in stacks ~}${stack} %{ endfor ~}; do
+  sed -i "s/__BACKEND_NETWORK_PLACEHOLDER__/$BACKEND_NETWORK/g" /root/$stack/docker-compose.yml
+done
+echo "Compose files ready (using network: $BACKEND_NETWORK)."
 
 # =============================================================================
 # Phase 2: Pull all images in parallel (background jobs)
