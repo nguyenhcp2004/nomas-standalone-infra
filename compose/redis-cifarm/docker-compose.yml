@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   redis:
-    image: docker.io/bitnamilegacy/redis:7.4
+    image: docker.io/bitnamilegacy/redis:7.4.3-debian-12-r0
     container_name: redis
     environment:
       - ALLOW_EMPTY_PASSWORD=no

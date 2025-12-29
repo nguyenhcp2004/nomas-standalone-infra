@@ -80,6 +80,11 @@ resource "null_resource" "docker_stacks" {
       mongodb_replica_set_key = var.mongodb_replica_set_key != "" ? var.mongodb_replica_set_key : "ChangeMeReplicaKey123!"
       redis_password = var.redis_password != "" ? var.redis_password : "ChangeMe123!"
       kafka_client_passwords = var.kafka_client_passwords != "" ? var.kafka_client_passwords : "ChangeMe123!"
+      arcane_encryption_key = var.arcane_encryption_key != "" ? var.arcane_encryption_key : "ChangeMeArcaneKey123!"
+      arcane_jwt_secret = var.arcane_jwt_secret != "" ? var.arcane_jwt_secret : "ChangeMeArcaneJWT123!"
+      grafana_admin_user = var.grafana_admin_user != "" ? var.grafana_admin_user : "admin"
+      grafana_admin_password = var.grafana_admin_password != "" ? var.grafana_admin_password : "ChangeMeGrafana123!"
+      grafana_root_url = var.grafana_root_url != "" ? var.grafana_root_url : "http://localhost:3000"
     })
     destination = "/tmp/deploy-stacks.sh"
   }
