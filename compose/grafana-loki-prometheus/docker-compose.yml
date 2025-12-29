@@ -97,8 +97,6 @@ services:
       - source: grafana-ds
         target: /etc/grafana/provisioning/datasources/ds.yaml
     logging: *default-logging
-    networks:
-      - monitoring
     restart: unless-stopped
 
   loki:

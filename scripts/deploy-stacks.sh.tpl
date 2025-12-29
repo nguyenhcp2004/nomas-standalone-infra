@@ -12,7 +12,7 @@ docker info >/dev/null || (echo 'Docker not ready, waiting 30s...' && sleep 30 &
 # =============================================================================
 echo ""
 echo "==> Phase 1: Preparing compose files..."
-BACKEND_NETWORK="${BACKEND_NETWORK_NAME:-backend-net}"
+BACKEND_NETWORK="$${BACKEND_NETWORK_NAME:-backend-net}"
 %{ for stack in stacks ~}
 mkdir -p /root/${stack}
 cat > /root/${stack}/docker-compose.yml <<'EOF_COMPOSE_${stack}'
@@ -30,11 +30,33 @@ echo "Compose files ready (using network: $BACKEND_NETWORK)."
 # Phase 2: Pull all images in parallel (background jobs)
 # =============================================================================
 echo ""
-echo "==> Phase 2: Pulling all images (parallel, 5min timeout per stack)..."
+echo "==> Phase 2: Pulling all images (parallel, with retry up to 3 times)..."
 %{ for stack in stacks ~}
 (
   cd /root/${stack}
-  timeout 300 docker compose pull --parallel --quiet 2>/dev/null || echo "  ${stack}: Pull timeout or failed (will retry on start)"
+  MAX_RETRIES=3
+  RETRY_COUNT=0
+  SUCCESS=false
+
+  while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$SUCCESS" = "false" ]; do
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    echo "  [${stack}] Pull attempt $RETRY_COUNT/$MAX_RETRIES..."
+
+    if timeout 600 docker compose pull --parallel --quiet 2>/dev/null; then
+      echo "  [${stack}] Pull succeeded!"
+      SUCCESS=true
+    else
+      echo "  [${stack}] Pull failed (attempt $RETRY_COUNT/$MAX_RETRIES)"
+      if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+        echo "  [${stack}] Retrying in 10 seconds..."
+        sleep 10
+      fi
+    fi
+  done
+
+  if [ "$SUCCESS" = "false" ]; then
+    echo "  [${stack}] Pull failed after $MAX_RETRIES attempts, will retry on start"
+  fi
 ) &
 %{ endfor ~}
 
