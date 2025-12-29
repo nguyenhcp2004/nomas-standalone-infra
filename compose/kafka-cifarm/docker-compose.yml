@@ -1,47 +1,47 @@
 # Copyright Broadcom, Inc. All Rights Reserved.
 # SPDX-License-Identifier: APACHE-2.0
 
-version: "3.9"
-
 services:
   kafka:
     image: docker.io/bitnamilegacy/kafka:3.9
     container_name: kafka
-    # Internal only - do not expose to internet
-    expose:
-      - "9092"
-      - "9093"
-      - "9094"
+    ports:
+      - "9092:9092"
     volumes:
-      - kafka_data:/bitnami
+      - "kafka_data:/bitnami"
+
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+
     environment:
-      # KRaft / Controller settings
+      # KRaft settings
       - KAFKA_CFG_NODE_ID=0
       - KAFKA_CFG_PROCESS_ROLES=controller,broker
       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
 
+      - KAFKA_HEAP_SIZE=768M
+
       # Listeners
       - KAFKA_CFG_LISTENERS=INTERNAL://:9094,CONTROLLER://:9093,LISTENER://:9092
-      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://:9094,CONTROLLER://:9093,LISTENER://localhost:9092
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,LISTENER:SASL_PLAINTEXT
 
-      # SASL / Authentication
-      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
-      - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
-      - KAFKA_CLIENT_LISTENER_NAME=LISTENER
+      # Advertised Listeners: QUAN TRỌNG NHẤT
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka:9094,CONTROLLER://kafka:9093,LISTENER://kafka:9092
+
+      # Security Map
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:SASL_PLAINTEXT,INTERNAL:PLAINTEXT,LISTENER:SASL_PLAINTEXT
+
+      # SASL Mechanism
+      - KAFKA_CFG_SASL_MECHANISM_CONTROLLER_PROTOCOL=PLAIN
       - KAFKA_CLIENT_USERS=kafka
       - KAFKA_CLIENT_PASSWORDS=${KAFKA_CLIENT_PASSWORDS}
 
-      # Controller/Inter-broker
+      # Listener Names Mapping
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
-    networks:
-      - kafka-net
+      - KAFKA_CLIENT_LISTENER_NAME=LISTENER
 
 volumes:
   kafka_data:
     driver: local
-
-networks:
-  kafka-net:
-    driver: bridge
